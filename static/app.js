@@ -179,9 +179,19 @@ async function fetchUserInfo() {
             userInfo = await res.json();
             
             if (userInfo.error === "not_registered") {
-                document.getElementById("unregisteredOverlay").classList.remove("hidden");
-                document.getElementById("app").style.display = "none";
-                return;
+                if (userInfo.is_admin) {
+                    userInfo = {
+                        full_name: "Администратор",
+                        shop_name: "Управление",
+                        phone: "Admin",
+                        is_admin: true,
+                        language: "ru"
+                    };
+                } else {
+                    document.getElementById("unregisteredOverlay").classList.remove("hidden");
+                    document.getElementById("app").style.display = "none";
+                    return;
+                }
             }
 
             document.getElementById("userFullName").textContent = userInfo.full_name || "Сотрудник Уз Тонг Хонг Ко";
