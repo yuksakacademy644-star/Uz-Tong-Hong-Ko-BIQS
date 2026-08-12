@@ -488,7 +488,18 @@ def create_bot_app():
     application.add_handler(MessageHandler(filters.Regex("^(🚀 Test va o'quv platformasi|🚀 Платформа обучения)$"), start_command))
     application.add_handler(MessageHandler(filters.Regex("^(📊 Mening natijalarim|📊 Моя статистика и рейтинг)$"), show_stats_handler))
     application.add_handler(MessageHandler(filters.Regex("^(⚙️ Tilni o'zgartirish|⚙️ Сменить язык)$"), change_lang_handler))
-    application.add_handler(MessageHandler(filters.Regex("^(👨‍💻 Asoschi haqida|👨‍💻 Об основателе)$"), founder_handler))
+    application.add_handler(MessageHandler(filters.Regex("^(👤 О создателе|👤 Asoschi haqida)$"), founder_handler))
+    
+    async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        logger.error(msg="Exception while handling an update:", exc_info=context.error)
+        if isinstance(update, Update) and update.effective_message:
+            try:
+                await update.effective_message.reply_text(f"⚠️ Ошибка бота:\n{context.error}")
+            except:
+                pass
+                
+    application.add_error_handler(error_handler)
+
     application.add_handler(CommandHandler("admin", admin_command))
     application.add_handler(CommandHandler("newcode", newcode_command))
     application.add_handler(CommandHandler("workers", workers_command))
