@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Uz Tong Hong Ko - BIQS Platform</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="dark-theme">
+    <!-- App Container -->
+    <div id="unregisteredOverlay" class="hidden" style="position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg-dark);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;">
+        <i class="fa-solid fa-lock" style="font-size:60px;color:var(--accent-red);margin-bottom:20px;"></i>
+        <h2 style="font-family: 'Outfit', sans-serif;font-size:24px;margin-bottom:15px;color:var(--text-primary);">Доступ закрыт</h2>
+        <p style="color:var(--text-secondary);font-size:16px;line-height:1.5;">Без приглашения у вас не получится зайти в бот.<br>Пожалуйста, вернитесь в чат и отправьте код приглашения.</p>
+    </div>
+    
+    <div id="app" class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="logo-icon">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div class="brand-text">
+                    <span class="company-name">UZ TONG HONG KO</span>
+                    <span class="system-tag">BIQS STANDARDS</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button id="langToggleBtn" class="lang-toggle-btn" title="Сменить язык">
+                    <span class="lang-flag" id="currentLangFlag">🇺🇿</span>
+                    <span class="lang-code" id="currentLangCode">UZ</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- User Info Bar -->
+        <div id="userInfoBar" class="user-info-bar">
+            <div class="user-avatar" id="userAvatar">
+                <i class="fa-solid fa-user-gear"></i>
+            </div>
+            <div class="user-details">
+                <h3 id="userFullName">Сотрудник Уз Тонг Хонг Ко</h3>
+                <p id="userShopInfo"><i class="fa-solid fa-industry"></i> <span id="shopNameText">Цех: -</span> | <i class="fa-solid fa-phone"></i> <span id="masterNameText">Телефон: -</span></p>
+            </div>
+            <div class="badge-tag" id="userRankBadge">
+                <i class="fa-solid fa-award"></i> <span id="rankBadgeText">Рабочий</span>
+            </div>
+        </div>
+
+        <!-- Main Navigation Tabs -->
+        <nav class="tab-nav">
+            <button class="tab-btn active" data-tab="elementsTab">
+                <i class="fa-solid fa-list-check"></i>
+                <span data-i18n="nav_elements">Standartlar (30)</span>
+            </button>
+            <button class="tab-btn" data-tab="quizTab">
+                <i class="fa-solid fa-pen-to-square"></i>
+                <span data-i18n="nav_quiz">Test Sinov</span>
+            </button>
+            <button class="tab-btn" data-tab="leaderboardTab">
+                <i class="fa-solid fa-trophy"></i>
+                <span data-i18n="nav_leaderboard">Reyting</span>
+            </button>
+            <button class="tab-btn admin-only-tab hidden" id="adminTabBtn" data-tab="adminTab">
+                <i class="fa-solid fa-user-shield"></i>
+                <span>Admin</span>
+            </button>
+        </nav>
+
+        <!-- Main Content Viewport -->
+        <main class="content-viewport">
+            
+            <!-- Tab 1: BIQS 30 Elements -->
+            <section id="elementsTab" class="tab-pane active">
+                <div class="section-header">
+                    <div class="section-title">
+                        <i class="fa-solid fa-book-open"></i>
+                        <h2 data-i18n="elements_title">30 Элементов Качества BIQS</h2>
+                    </div>
+                    <p class="section-desc" data-i18n="elements_subtitle">Официальные стандарты качества СП Уз Тонг Хонг Ко</p>
+                </div>
+
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                    <input type="text" id="elementSearchInput" placeholder="Поиск элемента..." data-i18n-placeholder="search_placeholder">
+                </div>
+
+                <div id="elementsGrid" class="elements-grid">
+                    <!-- Elements dynamically rendered here -->
+                    <div class="loading-spinner">
+                        <i class="fa-solid fa-circle-notch fa-spin"></i>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tab 2: Interactive Quiz -->
+            <section id="quizTab" class="tab-pane">
+                <div class="quiz-container">
+                    
+                    <!-- Quiz Start Screen -->
+                    <div id="quizStartScreen" class="quiz-card start-card">
+                        <div class="quiz-badge"><i class="fa-solid fa-graduation-cap"></i> BIQS TEST</div>
+                        <h2 data-i18n="quiz_welcome_title">Тестирование на знание BIQS</h2>
+                        <p data-i18n="quiz_welcome_desc">Пройдите официальное тестирование из 10 вопросов. Лучшие сотрудники автоматически рекомендуются к переводу в офис!</p>
+                        
+                        <div class="quiz-meta-grid">
+                            <div class="meta-item">
+                                <i class="fa-solid fa-clock"></i>
+                                <div>
+                                    <strong data-i18n="quiz_time_limit">10 Минут</strong>
+                                    <span data-i18n="quiz_time_label">Время</span>
+                                </div>
+                            </div>
+                            <div class="meta-item">
+                                <i class="fa-solid fa-circle-question"></i>
+                                <div>
+                                    <strong>10 Вопросов</strong>
+                                    <span data-i18n="quiz_questions_label">Количество</span>
+                                </div>
+                            </div>
+                            <div class="meta-item">
+                                <i class="fa-solid fa-star"></i>
+                                <div>
+                                    <strong>80%+</strong>
+                                    <span data-i18n="quiz_pass_label">Проходной балл</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button id="startQuizBtn" class="primary-btn btn-glow">
+                            <i class="fa-solid fa-play"></i> <span data-i18n="start_test_btn">Начать Тест</span>
+                        </button>
+                    </div>
+
+                    <!-- Active Quiz Screen -->
+                    <div id="quizActiveScreen" class="quiz-card active-card hidden">
+                        <div class="quiz-top-bar">
+                            <div class="quiz-progress-info">
+                                <span data-i18n="question">Вопрос</span> <span id="currentQuestionNum">1</span> / <span id="totalQuestionsNum">10</span>
+                            </div>
+                            <div class="quiz-timer" id="quizTimer">
+                                <i class="fa-solid fa-stopwatch"></i> <span id="timerText">10:00</span>
+                            </div>
+                        </div>
+
+                        <div class="progress-bar-track">
+                            <div class="progress-bar-fill" id="quizProgressFill" style="width: 10%;"></div>
+                        </div>
+
+                        <div class="question-box">
+                            <h3 id="questionText">Загрузка вопроса...</h3>
+                        </div>
+
+                        <div id="optionsList" class="options-list">
+                            <!-- Options rendered dynamically -->
+                        </div>
+
+                        <div class="quiz-explanation hidden" id="explanationBox">
+                            <div class="explanation-title"><i class="fa-solid fa-lightbulb"></i> <span data-i18n="explanation">Пояснение:</span></div>
+                            <p id="explanationText"></p>
+                        </div>
+
+                        <div class="quiz-actions">
+                            <button id="nextQuestionBtn" class="primary-btn hidden">
+                                <span data-i18n="next_question">Следующий вопрос</span> <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Quiz Result Screen -->
+                    <div id="quizResultScreen" class="quiz-card result-card hidden">
+                        <div class="result-icon-wrapper" id="resultIconWrapper">
+                            <i class="fa-solid fa-trophy" id="resultIcon"></i>
+                        </div>
+                        <h2 id="resultTitle">Поздравляем!</h2>
+                        <div class="score-circle">
+                            <span class="score-number" id="resultScorePercent">100%</span>
+                            <span class="score-label" id="resultScoreRatio">10 из 10 вопросов</span>
+                        </div>
+                        <p class="result-message" id="resultMessage">Вы показали отличный результат!</p>
+                        
+                        <div class="office-promotion-banner hidden" id="promotionBanner">
+                            <i class="fa-solid fa-award"></i>
+                            <div>
+                                <h4 data-i18n="promo_title">Высокий результат!</h4>
+                                <p data-i18n="promo_desc">Вы отлично знаете стандарты качества BIQS СП Уз Тонг Хонг Ко!</p>
+                            </div>
+                        </div>
+
+
+                        <div class="result-actions">
+                            <button id="restartQuizBtn" class="secondary-btn">
+                                <i class="fa-solid fa-rotate-right"></i> <span data-i18n="try_again">Пройти снова</span>
+                            </button>
+                            <button id="goLeaderboardBtn" class="primary-btn">
+                                <i class="fa-solid fa-trophy"></i> <span data-i18n="view_leaderboard">Посмотреть рейтинг</span>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- Tab 3: Leaderboard & User Stats -->
+            <section id="leaderboardTab" class="tab-pane">
+                <div class="section-header">
+                    <div class="section-title">
+                        <i class="fa-solid fa-trophy highlight-gold"></i>
+                        <h2 data-i18n="leaderboard_title">Рейтинг Специалистов</h2>
+                    </div>
+                    <p class="section-desc" data-i18n="leaderboard_subtitle">Лучшие сотрудники завода по результатам тестов BIQS</p>
+                </div>
+
+                <!-- Personal Performance Summary -->
+                <div class="personal-summary-card">
+                    <h3 data-i18n="my_stats_title"><i class="fa-solid fa-chart-line"></i> Моя статистика</h3>
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <span class="stat-value" id="myBestScore">0%</span>
+                            <span class="stat-label" data-i18n="best_result">Лучший результат</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-value" id="myTestsCount">0</span>
+                            <span class="stat-label" data-i18n="tests_passed">Пройдено тестов</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-value" id="myAvgScore">0%</span>
+                            <span class="stat-label" data-i18n="avg_result">Средний балл</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Leaderboard Table List -->
+                <div id="leaderboardList" class="leaderboard-list">
+                    <div class="loading-spinner">
+                        <i class="fa-solid fa-circle-notch fa-spin"></i>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tab 4: Admin Panel (Protected) -->
+            <section id="adminTab" class="tab-pane">
+                <div class="section-header">
+                    <div class="section-title">
+                        <i class="fa-solid fa-user-shield text-admin"></i>
+                        <h2>Панель Администратора</h2>
+                    </div>
+                    <p class="section-desc">Управление кодами приглашений и мониторинг кадров завода</p>
+                </div>
+
+                <!-- Generate Invite Code Form -->
+                <div class="admin-card">
+                    <h3><i class="fa-solid fa-key"></i> Создать код приглашения</h3>
+                    <form id="createCodeForm" class="admin-form">
+                        <div class="form-group">
+                            <label>Код приглашения</label>
+                            <div style="display:flex; gap:10px;">
+                                <input type="text" id="newCodeInput" placeholder="Код (например: UZTH-SHOP4)" required style="flex:1;">
+                                <button type="button" class="secondary-btn" style="padding:0 15px; background:var(--bg-lighter); color:var(--text-primary); border:1px solid rgba(255,255,255,0.1); border-radius:8px;" onclick="document.getElementById('newCodeInput').value = 'BIQS-' + Math.random().toString(36).substring(2,6).toUpperCase()"><i class="fa-solid fa-dice"></i></button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Название Цеха / Участка</label>
+                            <input type="text" id="newShopInput" placeholder="Например: Швейный цех" required>
+                        </div>
+                        <button type="submit" class="primary-btn btn-admin">
+                            <i class="fa-solid fa-plus"></i> Сгенерировать Код
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Existing Codes List -->
+                <div class="admin-card">
+                    <h3><i class="fa-solid fa-list"></i> Активные коды приглашения</h3>
+                    <div id="activeCodesList" class="admin-table-container">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+
+                <!-- All Workers Admin View -->
+                <div class="admin-card">
+                    <h3><i class="fa-solid fa-users"></i> Все сотрудники завода</h3>
+                    <div id="adminWorkersList" class="admin-table-container">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/app.js"></script>
+</body>
+</html>
