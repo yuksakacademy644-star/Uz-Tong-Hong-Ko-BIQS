@@ -164,7 +164,7 @@ def main():
     while True:
         try:
             bot_app = create_bot_app()
-            bot_app.run_polling(drop_pending_updates=True, poll_interval=1.0)
+            bot_app.run_polling(drop_pending_updates=False, poll_interval=1.0)
             break
         except Exception as err:
             print(f"[BOT RETRY] Connection warning: {err}. Retrying in 3s...")
