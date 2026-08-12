@@ -14,9 +14,26 @@ import database
 from server import app as fastapi_app
 from bot import create_bot_app, set_webapp_url
 
+import requests
+
 def start_fastapi():
     print("[SERVER] Starting FastAPI Server on http://0.0.0.0:8000 ...")
     uvicorn.run(fastapi_app, host=config.HOST, port=config.PORT, log_level="info")
+
+def keep_awake_bg():
+    if not os.environ.get("RENDER"):
+        return
+    render_url = os.environ.get("RENDER_EXTERNAL_URL")
+    if not render_url:
+        return
+    print(f"[KEEP-AWAKE] Started pinging {render_url} every 10 minutes to prevent sleep...")
+    while True:
+        time.sleep(600)  # 10 minutes
+        try:
+            r = requests.get(render_url, timeout=10)
+            print(f"[KEEP-AWAKE] Ping successful: {r.status_code}")
+        except Exception as e:
+            print(f"[KEEP-AWAKE] Ping failed: {e}")
 
 def setup_tunnel_bg():
     custom_url = os.environ.get("WEBAPP_URL")
@@ -127,6 +144,10 @@ def setup_tunnel_bg():
 def main():
     print("[INIT] Initializing Uz Tong Hong Ko BIQS Database...")
     database.init_db()
+
+    # Start Keep Awake
+    keep_awake_thread = threading.Thread(target=keep_awake_bg, daemon=True)
+    keep_awake_thread.start()
 
     # Start FastAPI
     server_thread = threading.Thread(target=start_fastapi, daemon=True)
