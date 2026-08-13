@@ -451,9 +451,11 @@ async def post_init_callback(app: Application):
     await update_chat_menu_button(app.bot, WEBAPP_URL)
 
 def create_bot_app():
+    request = HTTPXRequest(connection_pool_size=8, connect_timeout=30.0, read_timeout=30.0, write_timeout=30.0)
     application = (
         Application.builder()
         .token(config.BOT_TOKEN)
+        .request(request)
         .post_init(post_init_callback)
         .build()
     )
