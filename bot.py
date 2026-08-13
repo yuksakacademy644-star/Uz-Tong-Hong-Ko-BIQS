@@ -97,6 +97,18 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db_user = database.get_user(user.id)
     is_admin = user.id in config.ADMIN_IDS
 
+    # ✅ Force-update this specific user's Telegram Chat Menu Button to Production URL
+    try:
+        await context.bot.set_chat_menu_button(
+            chat_id=user.id,
+            menu_button=MenuButtonWebApp(
+                text="🚀 BIQS Mini App",
+                web_app=WebAppInfo(url=WEBAPP_URL)
+            )
+        )
+    except Exception as e:
+        logger.warning(f"[BOT WARN] Could not update menu button for user {user.id}: {e}")
+
     # ✅ Admin / Creator auto-bypass: Never ask Administrator for invite code!
     if not db_user and is_admin:
         database.create_user(
