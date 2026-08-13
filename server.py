@@ -224,6 +224,35 @@ async def create_admin_code(data: CreateCodeRequest):
     )
     return {"status": "created", "code": data.code}
 
+@app.get("/api/admin/force_update_keyboards")
+async def force_update_keyboards_route():
+    if _bot_application is None:
+        return {"error": "bot application not ready"}
+    from bot import get_main_keyboard, update_chat_menu_button, WEBAPP_URL
+    import asyncio
+    
+    # 1. Update Global Chat Menu Button
+    await update_chat_menu_button(_bot_application.bot, WEBAPP_URL)
+    
+    # 2. Update Reply Keyboards for all workers
+    workers = database.get_all_workers_admin()
+    updated = 0
+    for w in workers:
+        try:
+            lang = w.get("language", "ru")
+            await _bot_application.bot.send_message(
+                chat_id=w["telegram_id"],
+                text="🔄 <b>Меню бота обновлено на официальную версию.</b>\n<i>Menyu rasmiy versiyaga yangilandi.</i>",
+                parse_mode="HTML",
+                reply_markup=get_main_keyboard(lang)
+            )
+            updated += 1
+            await asyncio.sleep(0.05)
+        except Exception as e:
+            print(f"[KB UPDATE ERR] {w.get('telegram_id')}: {e}")
+            
+    return {"status": "ok", "updated_users": updated, "url": WEBAPP_URL}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host=config.HOST, port=config.PORT, reload=True)
