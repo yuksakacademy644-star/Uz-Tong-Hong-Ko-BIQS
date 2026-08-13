@@ -50,6 +50,14 @@ def setup_tunnel_bg():
         set_webapp_url(custom_url)
         return
 
+    # ✅ Локальный запуск — используем постоянный Render URL (никаких туннелей!)
+    # Это исключает Pinggy, localhost.run и любые страницы предупреждений навсегда.
+    production_url = getattr(config, "PRODUCTION_URL", "")
+    if production_url:
+        print(f"[TUNNEL] 🌐 Local mode → using Production URL: {production_url}")
+        set_webapp_url(production_url)
+        return
+
     # Attempt 1: ngrok (if authtoken is present)
     ngrok_authtoken = getattr(config, "NGROK_AUTHTOKEN", "") or os.environ.get("NGROK_AUTHTOKEN")
     if ngrok_authtoken and len(ngrok_authtoken.strip()) > 5:

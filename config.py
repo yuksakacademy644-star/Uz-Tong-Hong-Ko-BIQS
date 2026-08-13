@@ -8,6 +8,9 @@ DB_PATH = os.environ.get("DB_PATH", "biqs_uztonghong.db")
 PORT = int(os.environ.get("PORT", 8000))
 HOST = "0.0.0.0"
 
+# ✅ Постоянный URL продакшн сервера — при локальном запуске Mini App открывается через Render
+PRODUCTION_URL = "https://uz-tong-hong-ko-biqs.onrender.com"
+
 db_dir = os.path.dirname(DB_PATH)
 if db_dir and not os.path.exists(db_dir):
     try:
@@ -16,6 +19,4 @@ if db_dir and not os.path.exists(db_dir):
         print(f"Warning: Could not create directory {db_dir} for database: {e}. Falling back to local directory.")
         DB_PATH = "biqs_uztonghong.db"
 
-# Optional: Insert your free Ngrok Authtoken here to remove warning screens 100% permanently!
-# Get token free from https://dashboard.ngrok.com/get-started/your-authtoken
 NGROK_AUTHTOKEN = ""
