@@ -67,9 +67,34 @@ def setup_tunnel_bg():
 
     # Tunnel Monitor & Reconnect Loop
     while True:
-        # Attempt 2: Localhost.run SSH Tunnel (High reliability, explicit 127.0.0.1 IPv4 forwarding)
+        # Attempt 2: Pinggy (Highly stable 127.0.0.1 IPv4)
         try:
-            print("[TUNNEL] Initiating Localhost.run HTTPS tunnel...")
+            print("[TUNNEL] Initiating Pinggy HTTPS tunnel...")
+            cmd = ["ssh", "-o", "StrictHostKeyChecking=no", "-p", "443", "-R", f"0:127.0.0.1:{config.PORT}", "qr@a.pinggy.io"]
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+
+            tunnel_established = False
+            for line in proc.stdout:
+                line_str = line.strip()
+                print(f"[PINGGY LOG] {line_str}")
+                match = re.search(r'https://[a-zA-Z0-9-]+\.(free\.pinggy\.net|run\.pinggy-free\.link)', line_str)
+                if match:
+                    base_url = match.group(0)
+                    print(f"\n=======================================================")
+                    print(f"🚀 PUBLIC WEBAPP HTTPS URL (PINGGY): {base_url}")
+                    print(f"=======================================================\n")
+                    set_webapp_url(base_url)
+                    tunnel_established = True
+                    break
+            
+            if tunnel_established and proc.poll() is None:
+                proc.wait()
+        except Exception as e:
+            print(f"[PINGGY ERROR] {e}")
+
+        # Attempt 3: Localhost.run Fallback
+        try:
+            print("[TUNNEL] Initiating Localhost.run HTTPS tunnel fallback...")
             cmd = ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ServerAliveInterval=15", "-R", f"80:127.0.0.1:{config.PORT}", "nokey@localhost.run"]
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
 
@@ -90,28 +115,6 @@ def setup_tunnel_bg():
                 proc.wait()
         except Exception as e:
             print(f"[LOCALHOST.RUN ERROR] {e}")
-
-        # Attempt 3: Pinggy Fallback (127.0.0.1 IPv4)
-        try:
-            print("[TUNNEL] Initiating Pinggy HTTPS tunnel fallback...")
-            cmd = ["ssh", "-o", "StrictHostKeyChecking=no", "-p", "443", "-R", f"0:127.0.0.1:{config.PORT}", "qr@a.pinggy.io"]
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
-
-            for line in proc.stdout:
-                line_str = line.strip()
-                print(f"[PINGGY LOG] {line_str}")
-                match = re.search(r'https://[a-zA-Z0-9-]+\.(free\.pinggy\.net|run\.pinggy-free\.link)', line_str)
-                if match:
-                    base_url = match.group(0)
-                    print(f"\n=======================================================")
-                    print(f"🚀 PUBLIC WEBAPP HTTPS URL (PINGGY): {base_url}")
-                    print(f"=======================================================\n")
-                    set_webapp_url(base_url)
-                    break
-            if proc.poll() is None:
-                proc.wait()
-        except Exception as e:
-            print(f"[PINGGY ERROR] {e}")
 
         # Attempt 4: Cloudflared (if local exe exists)
         cloudflared_bin = "cloudflared.exe" if os.path.exists("cloudflared.exe") else "cloudflared"
