@@ -316,6 +316,37 @@ async def founder_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_html(text)
 
+# Force Keyboard Update for ALL users (admin only — run once)
+async def update_keyboards_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if await log_if_not_admin(user_id, "/update_kb"):
+        return
+
+    workers = database.get_all_workers_admin()
+    await update.message.reply_text(f"⏳ Updating keyboards for {len(workers)} users...")
+
+    success = 0
+    for w in workers:
+        try:
+            lang = w.get("language", "ru")
+            msg_text = (
+                "🔄 <b>Menyu yangilandi!</b> / <b>Меню обновлено!</b>\n"
+                "<i>Eski tugmalar o'chirildi. Pastdagi yangi menyudan foydalaning 👇\n"
+                "Старые кнопки удалены. Используйте новое меню ниже 👇</i>"
+            )
+            await context.bot.send_message(
+                chat_id=w["telegram_id"],
+                text=msg_text,
+                parse_mode="HTML",
+                reply_markup=get_main_keyboard(lang)
+            )
+            success += 1
+            await asyncio.sleep(0.05)
+        except Exception:
+            pass
+
+    await update.message.reply_text(f"✅ Done! Keyboards updated for {success}/{len(workers)} users.")
+
 # Tech Support Handler
 async def support_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -548,6 +579,7 @@ def create_bot_app(webhook_mode: bool = False):
     application.add_handler(CommandHandler("admin", admin_command))
     application.add_handler(CommandHandler("newcode", newcode_command))
     application.add_handler(CommandHandler("workers", workers_command))
+    application.add_handler(CommandHandler("update_kb", update_keyboards_command))
 
     return application
 
