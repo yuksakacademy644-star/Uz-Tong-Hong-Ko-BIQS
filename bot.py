@@ -333,9 +333,9 @@ async def founder_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     try:
         with open("static/founder.png", "rb") as photo:
-            await update.message.reply_photo(photo=photo, caption=text, parse_mode="HTML")
+            await update.message.reply_photo(photo=photo, caption=text, parse_mode="HTML", protect_content=True)
     except Exception as e:
-        await update.message.reply_html(text)
+        await update.message.reply_html(text, protect_content=True)
 
 # Force Keyboard Update for ALL users (admin only — run once)
 async def update_keyboards_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
