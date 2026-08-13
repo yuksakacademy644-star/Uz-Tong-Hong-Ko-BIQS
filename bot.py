@@ -61,12 +61,12 @@ def get_main_keyboard(lang: str = 'ru'):
     if lang == 'uz':
         kb = [
             [KeyboardButton("🚀 BIQS Mini App-ni ochish", web_app=WebAppInfo(url=url))],
-            [KeyboardButton("🆘 Texnik yordam")]
+            [KeyboardButton("👨‍💼 Yaratuvchi"), KeyboardButton("🆘 Texnik yordam")]
         ]
     else:
         kb = [
             [KeyboardButton("🚀 Открыть BIQS Mini App", web_app=WebAppInfo(url=url))],
-            [KeyboardButton("🆘 Техподдержка")]
+            [KeyboardButton("👨‍💼 Создатель"), KeyboardButton("🆘 Техподдержка")]
         ]
     return ReplyKeyboardMarkup(kb, resize_keyboard=True)
 
@@ -576,8 +576,8 @@ def create_bot_app(webhook_mode: bool = False):
     application.add_handler(CallbackQueryHandler(admin_attack_summary, pattern="^admin_attack_summary$"))
     application.add_handler(CallbackQueryHandler(admin_attack_detailed, pattern="^admin_attack_detailed$"))
 
-    # Clean handlers — only Mini App & Tech Support buttons allowed
     application.add_handler(MessageHandler(filters.Regex("^(🚀 Test va o'quv platformasi|🚀 Платформа обучения|🚀 BIQS Mini App-ni ochish|🚀 Открыть BIQS Mini App)$"), start_command))
+    application.add_handler(MessageHandler(filters.Regex("^(👨‍💼 Создатель|👨‍💼 Yaratuvchi|👨‍💼 Asoschi)$"), founder_handler))
     application.add_handler(MessageHandler(filters.Regex("^(🆘 Техподдержка|🆘 Texnik yordam)$"), support_handler))
     
     async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
