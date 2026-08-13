@@ -268,7 +268,10 @@
                                 <button type="button" class="secondary-btn" style="padding:0 15px; background:var(--bg-lighter); color:var(--text-primary); border:1px solid rgba(255,255,255,0.1); border-radius:8px;" onclick="document.getElementById('newCodeInput').value = 'BIQS-' + Math.random().toString(36).substring(2,6).toUpperCase()"><i class="fa-solid fa-dice"></i></button>
                             </div>
                         </div>
-                        <input type="hidden" id="newShopInput" value="СП Уз Тонг Хонг Ко">
+                        <div class="form-group">
+                            <label>Название цеха / Сектора</label>
+                            <input type="text" id="newShopInput" placeholder="Например: 1-Sekh (Payvandlash / Сварка)" required>
+                        </div>
                         <button type="submit" class="primary-btn btn-admin">
                             <i class="fa-solid fa-plus"></i> Сгенерировать Код
                         </button>

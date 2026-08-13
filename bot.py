@@ -372,9 +372,10 @@ async def update_keyboards_command(update: Update, context: ContextTypes.DEFAULT
 async def support_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     db_user = database.get_user(user_id)
-    lang = db_user.get("language", "ru") if db_user else "ru"
+    lang = db_user.get("language", "uz") if db_user else "uz"
+    msg_text = update.message.text or ""
 
-    if lang == 'uz':
+    if "Texnik yordam" in msg_text or lang == 'uz':
         text = (
             "🆘 <b>Texnik Yordam — СП Уз Тонг Хонг Ко</b>\n\n"
             "📞 <b>Telefon:</b> <code>+998507775152</code>\n\n"
@@ -405,20 +406,21 @@ async def newcode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(args) < 1:
         await update.message.reply_html(
             "⚠️ <b>Формат команды:</b>\n"
-            "<code>/newcode &lt;КОД&gt;</code>\n\n"
-            "<i>Пример:</i> <code>/newcode UZTH-2026</code>"
+            "<code>/newcode &lt;КОД&gt; [НАЗВАНИЕ_ЦЕХА]</code>\n\n"
+            "<i>Пример:</i> <code>/newcode UZTH-SHOP1 1-Sekh (Payvandlash)</code>"
         )
         return
 
     code = args[0].upper()
-    shop_name = "СП Уз Тонг Хонг Ко"
+    shop_name = " ".join(args[1:]) if len(args) > 1 else "СП Уз Тонг Хонг Ко"
     master_name = "Руководство"
 
     database.add_invite_code(code, shop_name, master_name, user_id)
 
     await update.message.reply_html(
         f"✅ <b>Код успешно создан!</b>\n\n"
-        f"🔑 <b>Код:</b> <code>{code}</code>"
+        f"🔑 <b>Код:</b> <code>{code}</code>\n"
+        f"🏭 <b>Цех/Сектор:</b> <code>{shop_name}</code>"
     )
 
 # Admin Command: /workers
