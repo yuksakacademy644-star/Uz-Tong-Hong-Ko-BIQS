@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 # Conversation States
 WAITING_FOR_INVITE_CODE, WAITING_FOR_FULL_NAME, WAITING_FOR_BROADCAST = range(1, 4)
 
-# Default WebApp URL
-WEBAPP_URL = "http://localhost:8000"
+# Default WebApp URL — always use production Render URL (never localhost / tunnel)
+WEBAPP_URL = getattr(config, "PRODUCTION_URL", "https://uz-tong-hong-ko-biqs.onrender.com")
 _bot_application = None
 _bot_loop = None
 
