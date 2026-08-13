@@ -95,6 +95,20 @@ def get_language_inline_keyboard():
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     db_user = database.get_user(user.id)
+    is_admin = user.id in config.ADMIN_IDS
+
+    # ✅ Admin / Creator auto-bypass: Never ask Administrator for invite code!
+    if not db_user and is_admin:
+        database.create_user(
+            telegram_id=user.id,
+            full_name=user.full_name or user.first_name,
+            username=user.username or "",
+            phone="",
+            invite_code="ADMIN",
+            shop_name="Администрация",
+            language="ru"
+        )
+        db_user = database.get_user(user.id)
 
     if db_user:
         lang = db_user.get("language", "ru")
