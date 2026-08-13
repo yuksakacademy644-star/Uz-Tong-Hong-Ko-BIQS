@@ -124,21 +124,15 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if db_user:
         lang = db_user.get("language", "ru")
-        shop = db_user.get("shop_name", "Цех")
-        master = db_user.get("master_name", "Мастер")
 
         if lang == 'uz':
             text = (
                 f"Xush kelibsiz, <b>{user.first_name}</b>!\n\n"
-                f"🏭 <b>Sizning sexingiz:</b> {shop}\n"
-                f"👨‍🏫 <b>Sizning ustangiz:</b> {master}\n\n"
                 f"O'quv platformasi va BIQS testini ochish uchun pastdagi tugmani bosing 👇"
             )
         else:
             text = (
                 f"Добро пожаловать, <b>{user.first_name}</b>!\n\n"
-                f"🏭 <b>Ваш цех:</b> {shop}\n"
-                f"👨‍🏫 <b>Ваш мастер:</b> {master}\n\n"
                 f"Для открытия платформы обучения BIQS нажмите кнопку ниже 👇"
             )
         
@@ -408,25 +402,23 @@ async def newcode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     args = context.args
-    if len(args) < 3:
+    if len(args) < 1:
         await update.message.reply_html(
             "⚠️ <b>Формат команды:</b>\n"
-            "<code>/newcode &lt;КОД&gt; &lt;ЦЕХ&gt; &lt;МАСТЕР&gt;</code>\n\n"
-            "<i>Пример:</i> <code>/newcode UZTH-SHOP4 4-Цех Мастер_Алиев</code>"
+            "<code>/newcode &lt;КОД&gt;</code>\n\n"
+            "<i>Пример:</i> <code>/newcode UZTH-2026</code>"
         )
         return
 
     code = args[0].upper()
-    shop_name = args[1]
-    master_name = " ".join(args[2:])
+    shop_name = "СП Уз Тонг Хонг Ко"
+    master_name = "Руководство"
 
     database.add_invite_code(code, shop_name, master_name, user_id)
 
     await update.message.reply_html(
         f"✅ <b>Код успешно создан!</b>\n\n"
-        f"🔑 <b>Код:</b> <code>{code}</code>\n"
-        f"🏭 <b>Цех:</b> {shop_name}\n"
-        f"👨‍🏫 <b>Мастер:</b> {master_name}"
+        f"🔑 <b>Код:</b> <code>{code}</code>"
     )
 
 # Admin Command: /workers
@@ -445,7 +437,6 @@ async def workers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         is_top = w["best_score"] >= 80
         badge = " 🌟 <b>ЭКСПЕРТ BIQS</b>" if is_top else ""
         msg += f"{idx}. <b>{w['full_name']}</b>{badge}\n"
-        msg += f"   🏭 {w['shop_name']} ({w['master_name']})\n"
         msg += f"   🎯 Natija: <b>{round(w['best_score'])}%</b> | {w['tests_completed']} попыток\n\n"
 
     await update.message.reply_html(msg)
