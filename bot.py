@@ -456,15 +456,19 @@ async def post_init_callback(app: Application):
         logger.warning(f"[BOT WARN] Could not delete webhook: {e}")
     await update_chat_menu_button(app.bot, WEBAPP_URL)
 
-def create_bot_app():
+def create_bot_app(webhook_mode: bool = False):
     request = HTTPXRequest(connection_pool_size=8, connect_timeout=30.0, read_timeout=30.0, write_timeout=30.0)
-    application = (
+    builder = (
         Application.builder()
         .token(config.BOT_TOKEN)
         .request(request)
         .post_init(post_init_callback)
-        .build()
     )
+    if webhook_mode:
+        # Webhook mode: Updater is NOT needed — Telegram pushes updates directly.
+        # This also avoids the Python 3.14 __slots__ bug in PTB 20.6's Updater.
+        builder = builder.updater(None)
+    application = builder.build()
 
 
     conv_handler = ConversationHandler(

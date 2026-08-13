@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI):
         from bot import create_bot_app, set_webapp_url
         set_webapp_url(render_url)                  # update WebApp URL
 
-        _bot_application = create_bot_app()
+        _bot_application = create_bot_app(webhook_mode=True)
         await _bot_application.initialize()         # triggers post_init → delete_webhook
         await _bot_application.start()
 
