@@ -23,10 +23,10 @@ def start_fastapi():
 def keep_awake_bg():
     if not os.environ.get("RENDER"):
         return
-    render_url = os.environ.get("RENDER_EXTERNAL_URL")
+    render_url = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
     if not render_url:
         return
-    health_url = render_url.rstrip("/") + "/health"
+    health_url = render_url + "/health"
     print(f"[KEEP-AWAKE] 🟢 Started pinging {health_url} every 4 minutes to prevent sleep...")
     while True:
         time.sleep(240)  # 4 minutes (Render sleeps after 15 min inactivity)
@@ -38,7 +38,7 @@ def keep_awake_bg():
 
 def setup_tunnel_bg():
     custom_url = os.environ.get("WEBAPP_URL")
-    
+
     if os.environ.get("RENDER"):
         render_url = os.environ.get("RENDER_EXTERNAL_URL")
         print(f"[TUNNEL] Running on Render. Setting WEBAPP_URL to: {render_url}")
@@ -68,7 +68,7 @@ def setup_tunnel_bg():
 
     # Tunnel Monitor & Reconnect Loop
     while True:
-        # Attempt 2: Pinggy (Highly stable 127.0.0.1 IPv4)
+        # Attempt 2: Pinggy
         try:
             print("[TUNNEL] Initiating Pinggy HTTPS tunnel...")
             cmd = ["ssh", "-o", "StrictHostKeyChecking=no", "-p", "443", "-R", f"0:127.0.0.1:{config.PORT}", "qr@a.pinggy.io"]
@@ -87,13 +87,13 @@ def setup_tunnel_bg():
                     set_webapp_url(base_url)
                     tunnel_established = True
                     break
-            
+
             if tunnel_established and proc.poll() is None:
                 proc.wait()
         except Exception as e:
             print(f"[PINGGY ERROR] {e}")
 
-        # Attempt 3: Localhost.run Fallback
+        # Attempt 3: Localhost.run
         try:
             print("[TUNNEL] Initiating Localhost.run HTTPS tunnel fallback...")
             cmd = ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ServerAliveInterval=15", "-R", f"80:127.0.0.1:{config.PORT}", "nokey@localhost.run"]
@@ -117,7 +117,7 @@ def setup_tunnel_bg():
         except Exception as e:
             print(f"[LOCALHOST.RUN ERROR] {e}")
 
-        # Attempt 4: Cloudflared (if local exe exists)
+        # Attempt 4: Cloudflared
         cloudflared_bin = "cloudflared.exe" if os.path.exists("cloudflared.exe") else "cloudflared"
         try:
             print("[TUNNEL] Attempting Cloudflare Tunnel...")
@@ -144,26 +144,34 @@ def setup_tunnel_bg():
         time.sleep(3)
 
 
-
 def main():
     print("[INIT] Initializing Uz Tong Hong Ko BIQS Database...")
     database.init_db()
 
-    # Start Keep Awake
+    # Start Keep Awake (only active on Render)
     keep_awake_thread = threading.Thread(target=keep_awake_bg, daemon=True)
     keep_awake_thread.start()
 
-    # Start FastAPI
+    # ── PRODUCTION (Render): Webhook mode ────────────────────────────────────
+    # Bot is initialized inside FastAPI lifespan (server.py).
+    # Telegram pushes updates to /webhook → instant response, no cold-start delay.
+    if os.environ.get("RENDER"):
+        print("[RUN] 🚀 Production mode: FastAPI + Webhook Bot starting...")
+        uvicorn.run(fastapi_app, host=config.HOST, port=config.PORT, log_level="info")
+        return
+
+    # ── LOCAL: Polling mode ───────────────────────────────────────────────────
+    # FastAPI runs in background thread, bot polls Telegram in the main thread.
+    print("[RUN] 🖥️  Local mode: FastAPI + Polling Bot starting...")
+
     server_thread = threading.Thread(target=start_fastapi, daemon=True)
     server_thread.start()
 
-    # Start Tunnel
     tunnel_thread = threading.Thread(target=setup_tunnel_bg, daemon=True)
     tunnel_thread.start()
 
     time.sleep(3)
 
-    # Start Bot
     print("[BOT] Starting Telegram Bot Polling (@UzTongHong_BIQS_bot)...")
     from telegram import Update
     while True:
@@ -172,7 +180,7 @@ def main():
             bot_app.run_polling(
                 drop_pending_updates=False,
                 poll_interval=1.0,
-                allowed_updates=Update.ALL_TYPES  # ✅ Barcha update turlarini qabul qilish
+                allowed_updates=Update.ALL_TYPES
             )
             break
         except Exception as err:

@@ -1,21 +1,75 @@
 import os
 import requests
 import random
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import Optional
-
 from fastapi.middleware.cors import CORSMiddleware
+from telegram import Update
 
 import config
 import database
 
-app = FastAPI(title="Uz Tong Hong Ko BIQS Mini App Server")
+# ─────────────────────────────────────────────
+# Bot app reference (only used in webhook mode)
+# ─────────────────────────────────────────────
+_bot_application = None
 
-# Enable CORS for Telegram WebApp
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    FastAPI lifespan:
+    - Render (production) → webhook mode: bot lives inside FastAPI, instant response
+    - Local → polling mode: bot runs separately in run.py, lifespan does nothing
+    """
+    global _bot_application
+    database.init_db()
+
+    render_url = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
+    is_render  = bool(os.environ.get("RENDER"))
+
+    if is_render and render_url:
+        # ── PRODUCTION: Webhook mode ──────────────────────────────────────────
+        from bot import create_bot_app, set_webapp_url
+        set_webapp_url(render_url)                  # update WebApp URL
+
+        _bot_application = create_bot_app()
+        await _bot_application.initialize()         # triggers post_init → delete_webhook
+        await _bot_application.start()
+
+        webhook_url = render_url + "/webhook"
+        await _bot_application.bot.set_webhook(
+            url=webhook_url,
+            allowed_updates=Update.ALL_TYPES,
+            drop_pending_updates=False,
+        )
+        print(f"[BOT] ⚡ Webhook mode ACTIVE → {webhook_url}")
+    else:
+        # ── LOCAL: Polling mode (bot started by run.py) ───────────────────────
+        print("[BOT] Local mode — polling handled by run.py")
+
+    yield   # ← server is running
+
+    # Shutdown
+    if _bot_application:
+        try:
+            await _bot_application.stop()
+            await _bot_application.shutdown()
+            print("[BOT] Bot shutdown complete.")
+        except Exception as e:
+            print(f"[BOT SHUTDOWN] {e}")
+
+
+# ─────────────────────────────────────────────
+# FastAPI app
+# ─────────────────────────────────────────────
+app = FastAPI(title="Uz Tong Hong Ko BIQS Mini App Server", lifespan=lifespan)
+
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -24,7 +78,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Custom header middleware for iframe compatibility inside Telegram WebApp
+# Telegram WebApp iframe headers
 @app.middleware("http")
 async def add_telegram_webapp_headers(request: Request, call_next):
     response = await call_next(request)
@@ -32,14 +86,14 @@ async def add_telegram_webapp_headers(request: Request, call_next):
     response.headers["Content-Security-Policy"] = "frame-ancestors *;"
     return response
 
-# Mount Static & Templates
+# Static & Templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# Initialize DB
-database.init_db()
 
+# ─────────────────────────────────────────────
 # Pydantic Schemas
+# ─────────────────────────────────────────────
 class QuizSubmitRequest(BaseModel):
     user_telegram_id: int
     score: int
@@ -54,7 +108,10 @@ class CreateCodeRequest(BaseModel):
     master_name: str
     created_by: int
 
-# Helper: Send Telegram Notification to Admin
+
+# ─────────────────────────────────────────────
+# Helper
+# ─────────────────────────────────────────────
 def send_admin_notification(text: str):
     try:
         url = f"https://api.telegram.org/bot{config.BOT_TOKEN}/sendMessage"
@@ -67,38 +124,58 @@ def send_admin_notification(text: str):
     except Exception as e:
         print(f"Failed to send admin notification: {e}")
 
-# Health Check Endpoint (for UptimeRobot / external monitors)
+
+# ─────────────────────────────────────────────
+# Routes
+# ─────────────────────────────────────────────
+
+# ⚡ Telegram Webhook Endpoint (production only)
+@app.post("/webhook")
+async def telegram_webhook(request: Request):
+    if _bot_application is None:
+        return JSONResponse({"error": "bot not initialized"}, status_code=503)
+    try:
+        data = await request.json()
+        update = Update.de_json(data, _bot_application.bot)
+        await _bot_application.process_update(update)
+    except Exception as e:
+        print(f"[WEBHOOK ERROR] {e}")
+    return {"ok": True}
+
+# Health Check (for UptimeRobot)
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "service": "Uz Tong Hong Ko BIQS Bot", "alive": True}
+    mode = "webhook" if _bot_application else "polling"
+    return {"status": "ok", "service": "Uz Tong Hong Ko BIQS Bot", "mode": mode, "alive": True}
 
 # WebApp Root Page
 @app.get("/", response_class=HTMLResponse)
 async def serve_miniapp(request: Request):
     return templates.TemplateResponse(request=request, name="index.html")
 
-
-# API Routes
+# User Info
 @app.get("/api/user_info")
 async def get_user_info(telegram_id: int = Query(...)):
     user = database.get_user(telegram_id)
     is_admin = telegram_id in config.ADMIN_IDS
     if not user:
         return {"error": "not_registered", "is_admin": is_admin}
-    
     user["is_admin"] = is_admin
     return user
 
+# BIQS Elements
 @app.get("/api/elements")
 async def get_elements():
     return database.get_biqs_elements()
 
+# Quiz (random 10 questions)
 @app.get("/api/quiz")
 async def get_quiz():
     questions = database.get_biqs_questions()
     random.shuffle(questions)
     return questions[:10]
 
+# Quiz Submit
 @app.post("/api/quiz/submit")
 async def submit_quiz(data: QuizSubmitRequest):
     import json
@@ -111,28 +188,18 @@ async def submit_quiz(data: QuizSubmitRequest):
         time_taken=data.time_taken_seconds,
         mistakes=mistakes_str
     )
-
-    user = database.get_user(data.user_telegram_id)
-    full_name = user["full_name"] if user else f"ID: {data.user_telegram_id}"
-    shop = user["shop_name"] if user else "СП Уз Тонг Хонг Ко"
-    phone = user.get("phone", "Нет номера") if user else "Нет номера"
-
-    # Result is logged in DB. Admin checks it via WebApp Admin Panel.
     return {"status": "success", "percentage": data.percentage}
 
+# Leaderboard
 @app.get("/api/leaderboard")
 async def get_leaderboard_route(user_telegram_id: Optional[int] = None):
     leaders = database.get_leaderboard(20)
     my_stats = {"tests_count": 0, "best_score": 0, "avg_score": 0}
     if user_telegram_id:
         my_stats = database.get_user_stats(user_telegram_id)
-    
-    return {
-        "leaderboard": leaders,
-        "my_stats": my_stats
-    }
+    return {"leaderboard": leaders, "my_stats": my_stats}
 
-# Admin API Routes
+# Admin API
 @app.get("/api/admin/codes")
 async def get_admin_codes():
     return database.get_all_invite_codes()
