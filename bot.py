@@ -448,6 +448,12 @@ async def post_init_callback(app: Application):
     global _bot_application, _bot_loop
     _bot_application = app
     _bot_loop = asyncio.get_running_loop()
+    # ✅ MUHIM: Eski webhook'ni o'chirish — polling ishlashi uchun zarur!
+    try:
+        await app.bot.delete_webhook(drop_pending_updates=False)
+        logger.info("[BOT] Webhook deleted. Polling mode activated.")
+    except Exception as e:
+        logger.warning(f"[BOT WARN] Could not delete webhook: {e}")
     await update_chat_menu_button(app.bot, WEBAPP_URL)
 
 def create_bot_app():

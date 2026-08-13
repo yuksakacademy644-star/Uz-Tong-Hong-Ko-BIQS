@@ -67,6 +67,11 @@ def send_admin_notification(text: str):
     except Exception as e:
         print(f"Failed to send admin notification: {e}")
 
+# Health Check Endpoint (for UptimeRobot / external monitors)
+@app.get("/health")
+async def health_check():
+    return {"status": "ok", "service": "Uz Tong Hong Ko BIQS Bot", "alive": True}
+
 # WebApp Root Page
 @app.get("/", response_class=HTMLResponse)
 async def serve_miniapp(request: Request):

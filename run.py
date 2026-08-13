@@ -26,14 +26,15 @@ def keep_awake_bg():
     render_url = os.environ.get("RENDER_EXTERNAL_URL")
     if not render_url:
         return
-    print(f"[KEEP-AWAKE] Started pinging {render_url} every 3 minutes to prevent sleep...")
+    health_url = render_url.rstrip("/") + "/health"
+    print(f"[KEEP-AWAKE] 🟢 Started pinging {health_url} every 4 minutes to prevent sleep...")
     while True:
-        time.sleep(180)  # 3 minutes
+        time.sleep(240)  # 4 minutes (Render sleeps after 15 min inactivity)
         try:
-            r = requests.get(render_url, timeout=10)
-            print(f"[KEEP-AWAKE] Ping successful: {r.status_code}")
+            r = requests.get(health_url, timeout=10)
+            print(f"[KEEP-AWAKE] ✅ Ping OK: {r.status_code}")
         except Exception as e:
-            print(f"[KEEP-AWAKE] Ping failed: {e}")
+            print(f"[KEEP-AWAKE] ⚠️ Ping failed: {e}")
 
 def setup_tunnel_bg():
     custom_url = os.environ.get("WEBAPP_URL")
@@ -160,14 +161,19 @@ def main():
     tunnel_thread = threading.Thread(target=setup_tunnel_bg, daemon=True)
     tunnel_thread.start()
 
-    time.sleep(2)
+    time.sleep(3)
 
     # Start Bot
     print("[BOT] Starting Telegram Bot Polling (@UzTongHong_BIQS_bot)...")
+    from telegram import Update
     while True:
         try:
             bot_app = create_bot_app()
-            bot_app.run_polling(drop_pending_updates=False, poll_interval=1.0)
+            bot_app.run_polling(
+                drop_pending_updates=False,
+                poll_interval=1.0,
+                allowed_updates=Update.ALL_TYPES  # ✅ Barcha update turlarini qabul qilish
+            )
             break
         except Exception as err:
             print(f"[BOT RETRY] Connection warning: {err}. Retrying in 3s...")
