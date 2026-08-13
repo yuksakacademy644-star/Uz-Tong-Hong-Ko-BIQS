@@ -60,11 +60,13 @@ def get_main_keyboard(lang: str = 'ru'):
     url = WEBAPP_URL
     if lang == 'uz':
         kb = [
-            [KeyboardButton("🚀 BIQS Mini App-ni ochish", web_app=WebAppInfo(url=url))]
+            [KeyboardButton("🚀 BIQS Mini App-ni ochish", web_app=WebAppInfo(url=url))],
+            [KeyboardButton("🆘 Texnik yordam")]
         ]
     else:
         kb = [
-            [KeyboardButton("🚀 Открыть BIQS Mini App", web_app=WebAppInfo(url=url))]
+            [KeyboardButton("🚀 Открыть BIQS Mini App", web_app=WebAppInfo(url=url))],
+            [KeyboardButton("🆘 Техподдержка")]
         ]
     return ReplyKeyboardMarkup(kb, resize_keyboard=True)
 
@@ -314,6 +316,33 @@ async def founder_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_html(text)
 
+# Tech Support Handler
+async def support_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    db_user = database.get_user(user_id)
+    lang = db_user.get("language", "ru") if db_user else "ru"
+
+    if lang == 'uz':
+        text = (
+            "🆘 <b>Texnik Yordam — СП Уз Тонг Хонг Ко</b>\n\n"
+            "📞 <b>Telefon:</b> <code>+998507775152</code>\n\n"
+            "⚠️ <b>Diqqat!</b>\n"
+            "<i>Iltimos, mayda savollar uchun qo'ng'iroq qilmang.\n"
+            "Faqat haqiqiy va jiddiy muammolar bo'lganda murojaat qiling.</i>\n\n"
+            "🕐 Ish vaqti: <b>Dushanba – Juma, 09:00 – 18:00</b>"
+        )
+    else:
+        text = (
+            "🆘 <b>Техническая поддержка — СП Уз Тонг Хонг Ко</b>\n\n"
+            "📞 <b>Телефон:</b> <code>+998507775152</code>\n\n"
+            "⚠️ <b>Внимание!</b>\n"
+            "<i>Пожалуйста, не звоните по мелочам.\n"
+            "Обращайтесь только при реальных и серьёзных вопросах.</i>\n\n"
+            "🕐 Рабочее время: <b>Пн – Пт, 09:00 – 18:00</b>"
+        )
+
+    await update.message.reply_html(text)
+
 # Admin Command: /newcode
 async def newcode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -498,6 +527,7 @@ def create_bot_app(webhook_mode: bool = False):
     application.add_handler(MessageHandler(filters.Regex("^(📊 Mening natijalarim|📊 Моя статистика и рейтинг)$"), show_stats_handler))
     application.add_handler(MessageHandler(filters.Regex("^(⚙️ Tilni o'zgartirish|⚙️ Сменить язык)$"), change_lang_handler))
     application.add_handler(MessageHandler(filters.Regex("^(👤 О создателе|👤 Asoschi haqida)$"), founder_handler))
+    application.add_handler(MessageHandler(filters.Regex("^(🆘 Техподдержка|🆘 Texnik yordam)$"), support_handler))
     
     async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.error(msg="Exception while handling an update:", exc_info=context.error)
