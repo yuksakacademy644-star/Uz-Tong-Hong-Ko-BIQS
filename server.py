@@ -3,7 +3,7 @@ import requests
 import random
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, Query
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -155,9 +155,9 @@ async def health_check():
     return {"status": "ok", "service": "Uz Tong Hong Ko BIQS Bot", "mode": mode, "alive": True}
 
 # WebApp Root Page
-@app.get("/", response_class=HTMLResponse)
-async def serve_miniapp(request: Request):
-    return templates.TemplateResponse(request=request, name="index.html")
+@app.get("/")
+async def serve_miniapp():
+    return FileResponse("templates/index.html")
 
 # User Info
 @app.get("/api/user_info")
