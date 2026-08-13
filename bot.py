@@ -485,7 +485,7 @@ def create_bot_app():
     application.add_handler(CallbackQueryHandler(set_language_callback, pattern="^set_lang_"))
     application.add_handler(CallbackQueryHandler(admin_attack_summary, pattern="^admin_attack_summary$"))
     application.add_handler(CallbackQueryHandler(admin_attack_detailed, pattern="^admin_attack_detailed$"))
-    application.add_handler(MessageHandler(filters.Regex("^(🚀 Test va o'quv platformasi|🚀 Платформа обучения)$"), start_command))
+    application.add_handler(MessageHandler(filters.Regex("^(🚀 Test va o'quv platformasi|🚀 Платформа обучения|🚀 BIQS Mini App-ni ochish|🚀 Открыть BIQS Mini App)$"), start_command))
     application.add_handler(MessageHandler(filters.Regex("^(📊 Mening natijalarim|📊 Моя статистика и рейтинг)$"), show_stats_handler))
     application.add_handler(MessageHandler(filters.Regex("^(⚙️ Tilni o'zgartirish|⚙️ Сменить язык)$"), change_lang_handler))
     application.add_handler(MessageHandler(filters.Regex("^(👤 О создателе|👤 Asoschi haqida)$"), founder_handler))
@@ -499,6 +499,16 @@ def create_bot_app():
                 pass
                 
     application.add_error_handler(error_handler)
+
+    async def global_fallback_text(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if isinstance(update, Update) and update.effective_message and update.effective_message.chat.type == "private":
+            await update.effective_message.reply_html(
+                "🔄 <b>Сессия устарела / Sessiya eskirdi</b>\n"
+                "Пожалуйста, отправьте команду /start для продолжения.\n"
+                "<i>Iltimos, davom etish uchun /start buyrug'ini yuboring.</i>"
+            )
+
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, global_fallback_text))
 
     application.add_handler(CommandHandler("admin", admin_command))
     application.add_handler(CommandHandler("newcode", newcode_command))
