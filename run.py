@@ -68,32 +68,32 @@ def setup_tunnel_bg():
 
     # Tunnel Monitor & Reconnect Loop
     while True:
-        # Attempt 2: Pinggy
+        # Attempt 2: Cloudflared FIRST ✅ (no warning page, exe already in project)
+        cloudflared_bin = "cloudflared.exe" if os.path.exists("cloudflared.exe") else "cloudflared"
         try:
-            print("[TUNNEL] Initiating Pinggy HTTPS tunnel...")
-            cmd = ["ssh", "-o", "StrictHostKeyChecking=no", "-p", "443", "-R", f"0:127.0.0.1:{config.PORT}", "qr@a.pinggy.io"]
+            print("[TUNNEL] 🌩️ Attempting Cloudflare Tunnel (no warning page)...")
+            cmd = [cloudflared_bin, "tunnel", "--url", f"http://127.0.0.1:{config.PORT}"]
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
 
             tunnel_established = False
             for line in proc.stdout:
                 line_str = line.strip()
-                print(f"[PINGGY LOG] {line_str}")
-                match = re.search(r'https://[a-zA-Z0-9-]+\.(free\.pinggy\.net|run\.pinggy-free\.link)', line_str)
+                print(f"[CLOUDFLARED LOG] {line_str}")
+                match = re.search(r'https://[a-zA-Z0-9-]+\.trycloudflare\.com', line_str)
                 if match:
                     base_url = match.group(0)
                     print(f"\n=======================================================")
-                    print(f"🚀 PUBLIC WEBAPP HTTPS URL (PINGGY): {base_url}")
+                    print(f"🚀 PUBLIC WEBAPP HTTPS URL (CLOUDFLARE): {base_url}")
                     print(f"=======================================================\n")
                     set_webapp_url(base_url)
                     tunnel_established = True
-                    break
 
             if tunnel_established and proc.poll() is None:
                 proc.wait()
         except Exception as e:
-            print(f"[PINGGY ERROR] {e}")
+            print(f"[CLOUDFLARE ERROR] {e}")
 
-        # Attempt 3: Localhost.run
+        # Attempt 3: Localhost.run (fallback, also no warning page)
         try:
             print("[TUNNEL] Initiating Localhost.run HTTPS tunnel fallback...")
             cmd = ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ServerAliveInterval=15", "-R", f"80:127.0.0.1:{config.PORT}", "nokey@localhost.run"]
@@ -117,31 +117,9 @@ def setup_tunnel_bg():
         except Exception as e:
             print(f"[LOCALHOST.RUN ERROR] {e}")
 
-        # Attempt 4: Cloudflared
-        cloudflared_bin = "cloudflared.exe" if os.path.exists("cloudflared.exe") else "cloudflared"
-        try:
-            print("[TUNNEL] Attempting Cloudflare Tunnel...")
-            cmd = [cloudflared_bin, "tunnel", "--url", f"http://127.0.0.1:{config.PORT}"]
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
-
-            for line in proc.stdout:
-                line_str = line.strip()
-                print(f"[CLOUDFLARED LOG] {line_str}")
-                match = re.search(r'https://[a-zA-Z0-9-]+\.trycloudflare\.com', line_str)
-                if match:
-                    base_url = match.group(0)
-                    print(f"\n=======================================================")
-                    print(f"🚀 PUBLIC WEBAPP HTTPS URL (CLOUDFLARE): {base_url}")
-                    print(f"=======================================================\n")
-                    set_webapp_url(base_url)
-                    break
-            if proc.poll() is None:
-                proc.wait()
-        except Exception as e:
-            print(f"[CLOUDFLARE ERROR] {e}")
-
         print("[TUNNEL RETRY] Tunnel connection closed. Re-establishing in 3 seconds...")
         time.sleep(3)
+
 
 
 def main():
