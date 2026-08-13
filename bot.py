@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from telegram import (
-    Update, ReplyKeyboardMarkup, KeyboardButton,
+    Update, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove,
     InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo,
     MenuButtonWebApp
 )
@@ -131,7 +131,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🔑 <b>Введите код приглашения от администратора:</b>\n"
             "<i>(Administratorning kirish kodini kiriting:)</i>"
         )
-        await update.message.reply_html(msg_text)
+        await update.message.reply_html(msg_text, reply_markup=ReplyKeyboardRemove())
         return WAITING_FOR_INVITE_CODE
 
 # Invite Code Verification
@@ -143,7 +143,8 @@ async def process_invite_code(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_html(
             "❌ <b>Неверный код приглашения!</b>\n"
             "Пожалуйста, проверьте код и введите его снова:\n\n"
-            "<i>Xato kirish kodi! Qayta kiriting:</i>"
+            "<i>Xato kirish kodi! Qayta kiriting:</i>",
+            reply_markup=ReplyKeyboardRemove()
         )
         return WAITING_FOR_INVITE_CODE
 
@@ -558,11 +559,8 @@ def create_bot_app(webhook_mode: bool = False):
     application.add_handler(CallbackQueryHandler(admin_attack_summary, pattern="^admin_attack_summary$"))
     application.add_handler(CallbackQueryHandler(admin_attack_detailed, pattern="^admin_attack_detailed$"))
 
-    # ✅ Old cached keyboard buttons — keep working until users press /start
+    # Clean handlers — only Mini App & Tech Support buttons allowed
     application.add_handler(MessageHandler(filters.Regex("^(🚀 Test va o'quv platformasi|🚀 Платформа обучения|🚀 BIQS Mini App-ni ochish|🚀 Открыть BIQS Mini App)$"), start_command))
-    application.add_handler(MessageHandler(filters.Regex("^(📊 Mening natijalarim|📊 Моя статистика и рейтинг)$"), show_stats_handler))
-    application.add_handler(MessageHandler(filters.Regex("^(⚙️ Tilni o'zgartirish|⚙️ Сменить язык)$"), change_lang_handler))
-    application.add_handler(MessageHandler(filters.Regex("^(👤 О создателе|👤 Asoschi haqida)$"), founder_handler))
     application.add_handler(MessageHandler(filters.Regex("^(🆘 Техподдержка|🆘 Texnik yordam)$"), support_handler))
     
     async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -578,9 +576,10 @@ def create_bot_app(webhook_mode: bool = False):
     async def global_fallback_text(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
         if isinstance(update, Update) and update.effective_message and update.effective_message.chat.type == "private":
             await update.effective_message.reply_html(
-                "🔄 <b>Сессия устарела / Sessiya eskirdi</b>\n"
-                "Пожалуйста, отправьте команду /start для продолжения.\n"
-                "<i>Iltimos, davom etish uchun /start buyrug'ini yuboring.</i>"
+                "🔄 <b>Menyu yangilandi / Меню обновлено</b>\n"
+                "Eski tugmalar o'chirildi. Iltimos, /start buyrug'ini yuboring.\n"
+                "<i>Старые кнопки удалены. Пожалуйста, отправьте команду /start.</i>",
+                reply_markup=ReplyKeyboardRemove()
             )
 
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, global_fallback_text))
