@@ -26,9 +26,9 @@ def keep_awake_bg():
     render_url = os.environ.get("RENDER_EXTERNAL_URL")
     if not render_url:
         return
-    print(f"[KEEP-AWAKE] Started pinging {render_url} every 10 minutes to prevent sleep...")
+    print(f"[KEEP-AWAKE] Started pinging {render_url} every 3 minutes to prevent sleep...")
     while True:
-        time.sleep(600)  # 10 minutes
+        time.sleep(180)  # 3 minutes
         try:
             r = requests.get(render_url, timeout=10)
             print(f"[KEEP-AWAKE] Ping successful: {r.status_code}")
