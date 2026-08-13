@@ -554,6 +554,12 @@ def create_bot_app(webhook_mode: bool = False):
     application.add_handler(CallbackQueryHandler(set_language_callback, pattern="^set_lang_"))
     application.add_handler(CallbackQueryHandler(admin_attack_summary, pattern="^admin_attack_summary$"))
     application.add_handler(CallbackQueryHandler(admin_attack_detailed, pattern="^admin_attack_detailed$"))
+
+    # ✅ Old cached keyboard buttons — keep working until users press /start
+    application.add_handler(MessageHandler(filters.Regex("^(🚀 Test va o'quv platformasi|🚀 Платформа обучения|🚀 BIQS Mini App-ni ochish|🚀 Открыть BIQS Mini App)$"), start_command))
+    application.add_handler(MessageHandler(filters.Regex("^(📊 Mening natijalarim|📊 Моя статистика и рейтинг)$"), show_stats_handler))
+    application.add_handler(MessageHandler(filters.Regex("^(⚙️ Tilni o'zgartirish|⚙️ Сменить язык)$"), change_lang_handler))
+    application.add_handler(MessageHandler(filters.Regex("^(👤 О создателе|👤 Asoschi haqida)$"), founder_handler))
     application.add_handler(MessageHandler(filters.Regex("^(🆘 Техподдержка|🆘 Texnik yordam)$"), support_handler))
     
     async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
