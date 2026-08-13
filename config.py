@@ -1,8 +1,9 @@
 import os
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8876317770:AAGVtad4BXnD3oNqTNr-jVoMHHYBPnHgAVo")
+bot_env = os.environ.get("BOT_TOKEN")
+BOT_TOKEN = bot_env if bot_env and bot_env.strip() else "8876317770:AAGVtad4BXnD3oNqTNr-jVoMHHYBPnHgAVo"
 admin_env = os.environ.get("ADMIN_IDS")
-ADMIN_IDS = [int(x.strip()) for x in admin_env.split(",")] if admin_env else [5543183063]
+ADMIN_IDS = [int(x.strip()) for x in admin_env.split(",") if x.strip()] if admin_env and admin_env.strip() else [5543183063]
 DB_PATH = os.environ.get("DB_PATH", "biqs_uztonghong.db")
 PORT = int(os.environ.get("PORT", 8000))
 HOST = "0.0.0.0"
