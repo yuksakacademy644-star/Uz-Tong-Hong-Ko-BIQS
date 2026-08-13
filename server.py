@@ -30,24 +30,30 @@ async def lifespan(app: FastAPI):
     database.init_db()
 
     render_url = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
-    is_render  = bool(os.environ.get("RENDER"))
+    if not render_url and getattr(config, "PRODUCTION_URL", ""):
+        render_url = config.PRODUCTION_URL.rstrip("/")
 
-    if is_render and render_url:
+    is_render  = bool(os.environ.get("RENDER")) or bool(os.environ.get("RENDER_SERVICE_ID"))
+
+    if (is_render or render_url) and render_url.startswith("https://"):
         # ── PRODUCTION: Webhook mode ──────────────────────────────────────────
         from bot import create_bot_app, set_webapp_url
         set_webapp_url(render_url)                  # update WebApp URL
 
         _bot_application = create_bot_app(webhook_mode=True)
-        await _bot_application.initialize()         # triggers post_init → delete_webhook
+        await _bot_application.initialize()
         await _bot_application.start()
 
         webhook_url = render_url + "/webhook"
-        await _bot_application.bot.set_webhook(
-            url=webhook_url,
-            allowed_updates=Update.ALL_TYPES,
-            drop_pending_updates=False,
-        )
-        print(f"[BOT] ⚡ Webhook mode ACTIVE → {webhook_url}")
+        try:
+            res = await _bot_application.bot.set_webhook(
+                url=webhook_url,
+                allowed_updates=Update.ALL_TYPES,
+                drop_pending_updates=False,
+            )
+            print(f"[BOT] ⚡ Webhook mode ACTIVE → {webhook_url} (result: {res})")
+        except Exception as e:
+            print(f"[BOT ERROR] Failed to set webhook to {webhook_url}: {e}")
     else:
         # ── LOCAL: Polling mode (bot started by run.py) ───────────────────────
         print("[BOT] Local mode — polling handled by run.py")

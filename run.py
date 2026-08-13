@@ -146,9 +146,8 @@ def main():
         uvicorn.run(fastapi_app, host=config.HOST, port=config.PORT, log_level="info")
         return
 
-    # ── LOCAL: Polling mode ───────────────────────────────────────────────────
-    # FastAPI runs in background thread, bot polls Telegram in the main thread.
-    print("[RUN] 🖥️  Local mode: FastAPI + Polling Bot starting...")
+    # ── LOCAL: Polling mode / Render Webhook Detection ──────────────────────
+    print("[RUN] 🖥️  Local mode: Starting local FastAPI server...")
 
     server_thread = threading.Thread(target=start_fastapi, daemon=True)
     server_thread.start()
@@ -156,13 +155,37 @@ def main():
     tunnel_thread = threading.Thread(target=setup_tunnel_bg, daemon=True)
     tunnel_thread.start()
 
-    time.sleep(3)
+    time.sleep(2)
 
-    print("[BOT] Starting Telegram Bot Polling (@UzTongHong_BIQS_bot)...")
+    # Check if Render Webhook bot is already online
+    prod_url = getattr(config, "PRODUCTION_URL", "").rstrip("/")
+    render_webhook_online = False
+    if prod_url:
+        try:
+            r = requests.get(f"{prod_url}/health", timeout=4)
+            if r.status_code == 200 and r.json().get("mode") == "webhook":
+                render_webhook_online = True
+        except Exception:
+            render_webhook_online = False
+
+    if render_webhook_online:
+        print("\n==================================================================")
+        print("🟢 PRODUCTION BOT IS ACTIVE 24/7 ON RENDER (WEBHOOK MODE)!")
+        print("⚡ All Telegram messages are handled instantly by Render.")
+        print("🛡️ Local polling SKIPPED to preserve Render Webhook 24/7 uptime.")
+        print("==================================================================\n")
+        try:
+            while True:
+                time.sleep(3600)
+        except KeyboardInterrupt:
+            print("[SHUTDOWN] Exiting...")
+            return
+
+    print("[BOT] Render Webhook offline or not configured. Starting local polling...")
     from telegram import Update
     while True:
         try:
-            bot_app = create_bot_app()
+            bot_app = create_bot_app(webhook_mode=False)
             bot_app.run_polling(
                 drop_pending_updates=False,
                 poll_interval=1.0,
