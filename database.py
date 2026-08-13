@@ -64,20 +64,13 @@ def init_db():
     )
     """)
 
-    # Seed Default Invite Codes
-    default_codes = [
-        ("UZTH-SHOP1", "1-Sekh (Payvandlash / Сварка)", "Master Qodirov B.", 5543183063),
-        ("UZTH-SHOP2", "2-Sekh (Shtamplash / Штамповка)", "Master Ismoilov A.", 5543183063),
-        ("UZTH-SHOP3", "3-Sekh (Yig'uv / Сборка)", "Master Rahimov S.", 5543183063),
-        ("UZTH-BIQS2026", "Sifat Bo'limi (ОТК / BIQS)", "Glavniy Kontroler", 5543183063),
-    ]
+    conn.commit()
+    conn.close()
 
-    for code, shop, master, creator in default_codes:
-        cursor.execute("""
-        INSERT OR IGNORE INTO invite_codes (code, shop_name, master_name, created_by)
-        VALUES (?, ?, ?, ?)
-        """, (code, shop, master, creator))
-
+def clear_all_invite_codes():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM invite_codes")
     conn.commit()
     conn.close()
 

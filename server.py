@@ -28,6 +28,7 @@ async def lifespan(app: FastAPI):
     """
     global _bot_application
     database.init_db()
+    database.clear_all_invite_codes()
 
     render_url = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
     if not render_url and getattr(config, "PRODUCTION_URL", ""):
