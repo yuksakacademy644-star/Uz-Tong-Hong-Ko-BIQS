@@ -381,7 +381,7 @@ async def support_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "⚠️ <b>Diqqat!</b>\n"
             "<i>Iltimos, mayda savollar uchun qo'ng'iroq qilmang.\n"
             "Faqat haqiqiy va jiddiy muammolar bo'lganda murojaat qiling.</i>\n\n"
-            "🕐 Ish vaqti: <b>Dushanba – Juma, 09:00 – 18:00</b>"
+            "🕐 Ish vaqti: <b>08:00 – 19:00</b>"
         )
     else:
         text = (
@@ -390,7 +390,7 @@ async def support_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "⚠️ <b>Внимание!</b>\n"
             "<i>Пожалуйста, не звоните по мелочам.\n"
             "Обращайтесь только при реальных и серьёзных вопросах.</i>\n\n"
-            "🕐 Рабочее время: <b>Пн – Пт, 09:00 – 18:00</b>"
+            "🕐 Рабочее время: <b>08:00 – 19:00</b>"
         )
 
     await update.message.reply_html(text)
