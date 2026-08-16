@@ -112,8 +112,14 @@ class QuizSubmitRequest(BaseModel):
 class CreateCodeRequest(BaseModel):
     code: str
     shop_name: str
-    master_name: str
+    master_name: Optional[str] = "Руководство"
     created_by: int
+    target_role: Optional[str] = "worker"
+
+class AddAdminRequest(BaseModel):
+    identifier: str
+    permissions: list[str] = ["create_codes", "view_workers", "broadcast"]
+    added_by: int
 
 
 # ─────────────────────────────────────────────
@@ -164,11 +170,32 @@ async def serve_miniapp():
 @app.get("/api/user_info")
 async def get_user_info(telegram_id: int = Query(...)):
     user = database.get_user(telegram_id)
-    is_admin = telegram_id in config.ADMIN_IDS
+    is_admin = database.is_admin_or_superadmin(telegram_id)
     if not user:
         return {"error": "not_registered", "is_admin": is_admin}
     user["is_admin"] = is_admin
+    if "role" not in user or not user["role"]:
+        user["role"] = "superadmin" if is_admin else "worker"
     return user
+
+# My Team (Master / Chief Shop Monitoring)
+@app.get("/api/my_team")
+async def get_my_team_route(telegram_id: int = Query(...)):
+    user = database.get_user(telegram_id)
+    is_admin = database.is_admin_or_superadmin(telegram_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    role = user.get("role", "worker")
+    if role != 'master' and not is_admin:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    shop_name = user.get("shop_name", "СП Уз Тонг Хонг Ко")
+    workers = database.get_shop_workers(shop_name)
+    return {
+        "shop_name": shop_name,
+        "workers": workers
+    }
 
 # BIQS Elements
 @app.get("/api/elements")
@@ -215,15 +242,40 @@ async def get_admin_codes():
 async def get_admin_workers():
     return database.get_all_workers_admin()
 
+@app.get("/api/admin/admins")
+async def get_admins_route(telegram_id: int = Query(...)):
+    if not database.check_user_permission(telegram_id, "manage_admins"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    return database.get_all_admins()
+
+@app.post("/api/admin/add_admin")
+async def add_admin_route(data: AddAdminRequest):
+    if not database.check_user_permission(data.added_by, "manage_admins"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    target_user = database.get_user_by_username_or_id(data.identifier)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    database.set_user_role_and_permissions(target_user["telegram_id"], "admin", data.permissions)
+    return {"status": "success", "user": target_user["full_name"], "permissions": data.permissions}
+
+@app.get("/api/admin/attacks")
+async def get_attacks_route(telegram_id: int = Query(...)):
+    if not database.check_user_permission(telegram_id, "view_attacks"):
+        raise HTTPException(status_code=403, detail="Access denied")
+    return database.get_attacks_summary()
+
 @app.post("/api/admin/create_code")
 async def create_admin_code(data: CreateCodeRequest):
     database.add_invite_code(
         code=data.code,
         shop_name=data.shop_name,
-        master_name=data.master_name,
-        created_by=data.created_by
+        master_name=data.master_name or "Руководство",
+        created_by=data.created_by,
+        target_role=data.target_role or "worker"
     )
-    return {"status": "created", "code": data.code}
+    return {"status": "created", "code": data.code, "target_role": data.target_role}
 
 @app.get("/api/admin/force_update_keyboards")
 async def force_update_keyboards_route():

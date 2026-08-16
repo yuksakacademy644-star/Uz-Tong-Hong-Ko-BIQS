@@ -27,6 +27,7 @@ const i18n = {
         nav_elements: "Стандарты (30)",
         nav_quiz: "Тестирование",
         nav_leaderboard: "Рейтинг",
+        nav_my_team: "Мой цех",
         elements_title: "30 Элементов Качества BIQS",
         elements_subtitle: "Официальные стандарты качества СП Уз Тонг Хонг Ко",
         search_placeholder: "Поиск элемента BIQS...",
@@ -51,7 +52,7 @@ const i18n = {
         tests_passed: "Пройдено тестов",
         avg_result: "Средний балл",
         rank_worker: "Рабочий",
-        rank_master: "Мастер/Бригадир",
+        rank_master: "Мастер / Начальник",
         rank_admin: "Администратор",
         rank_office_candidate: "Эксперт BIQS ⭐"
     },
@@ -59,6 +60,7 @@ const i18n = {
         nav_elements: "Standartlar (30)",
         nav_quiz: "Test Sinov",
         nav_leaderboard: "Reyting",
+        nav_my_team: "Mening Sexim",
         elements_title: "30 ta BIQS Sifat Elementlari",
         elements_subtitle: "Uz Tong Hong Ko korxonasining rasmiy sifat standartlari",
         search_placeholder: "BIQS elementini qidirish...",
@@ -83,7 +85,7 @@ const i18n = {
         tests_passed: "Topshirilgan testlar",
         avg_result: "O'rtacha ball",
         rank_worker: "Ishchi",
-        rank_master: "Usta/Brigadir",
+        rank_master: "Sex Boshlig'i / Master",
         rank_admin: "Administrator",
         rank_office_candidate: "BIQS Eksperti ⭐"
     }
@@ -111,6 +113,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("restartQuizBtn").addEventListener("click", resetQuiz);
     document.getElementById("goLeaderboardBtn").addEventListener("click", () => switchTab("leaderboardTab"));
     document.getElementById("createCodeForm").addEventListener("submit", handleCreateCode);
+    if (document.getElementById("addAdminForm")) {
+        document.getElementById("addAdminForm").addEventListener("submit", handleAddAdmin);
+    }
 });
 
 // Tab Navigation
@@ -135,6 +140,7 @@ function switchTab(tabId) {
     if (activePane) activePane.classList.add("active");
 
     if (tabId === "leaderboardTab") fetchLeaderboard();
+    if (tabId === "myTeamTab") fetchMyTeamData();
     if (tabId === "adminTab") fetchAdminData();
 }
 
@@ -184,6 +190,7 @@ async function fetchUserInfo() {
                         full_name: "Администратор",
                         shop_name: "Управление",
                         phone: "Admin",
+                        role: "superadmin",
                         is_admin: true,
                         language: "ru"
                     };
@@ -198,14 +205,33 @@ async function fetchUserInfo() {
             document.getElementById("shopNameText").textContent = userInfo.shop_name || "Цех #1";
             document.getElementById("masterNameText").textContent = userInfo.phone || "-";
 
+            // Update Badge role text
+            const rankText = document.getElementById("rankBadgeText");
+            if (rankText) {
+                if (userInfo.role === 'master') {
+                    rankText.textContent = currentLang === 'ru' ? "Мастер / Начальник" : "Sex Boshlig'i";
+                } else if (userInfo.is_admin || userInfo.role === 'admin' || userInfo.role === 'superadmin') {
+                    rankText.textContent = currentLang === 'ru' ? "Администратор" : "Administrator";
+                } else {
+                    rankText.textContent = currentLang === 'ru' ? "Рабочий" : "Ishchi";
+                }
+            }
+
             if (userInfo.language) {
                 currentLang = userInfo.language;
                 updateLanguageUI();
             }
 
+            // If Master or Admin, show My Team Tab
+            if (userInfo.role === 'master' || userInfo.is_admin) {
+                const teamBtn = document.getElementById("myTeamTabBtn");
+                if (teamBtn) teamBtn.classList.remove("hidden");
+            }
+
             // If Admin, show Admin Tab
             if (userInfo.is_admin) {
-                document.getElementById("adminTabBtn").classList.remove("hidden");
+                const adminBtn = document.getElementById("adminTabBtn");
+                if (adminBtn) adminBtn.classList.remove("hidden");
             }
         }
     } catch (e) {
@@ -489,6 +515,75 @@ function renderLeaderboard(leaders = []) {
     });
 }
 
+// Fetch My Team Data (Master / Chief Shop Monitoring)
+async function fetchMyTeamData() {
+    const container = document.getElementById("myTeamWorkersList");
+    if (!container) return;
+
+    try {
+        const res = await fetch(`/api/my_team?telegram_id=${userTelegramId}`);
+        if (!res.ok) {
+            container.innerHTML = `<p style="color:var(--accent-red); padding:15px;">Доступ запрещен или цех не найден</p>`;
+            return;
+        }
+
+        const data = await res.json();
+        document.getElementById("myTeamShopTitle").textContent = `${data.shop_name} — Xodimlari`;
+        
+        const workers = data.workers || [];
+        if (workers.length === 0) {
+            container.innerHTML = `<p style="color:var(--text-muted); padding:15px;">Ushbu sexda hali xodimlar ro'yxatdan o'tmagan</p>`;
+            return;
+        }
+
+        let html = `
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>ФИО / Xodim</th>
+                        <th>Телефон</th>
+                        <th>Natija (%)</th>
+                        <th>Xatolar (Mistakes)</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        workers.forEach(w => {
+            const isTop = w.best_score >= 80;
+            let mistakesText = "";
+            try {
+                const parsed = w.latest_mistakes ? JSON.parse(w.latest_mistakes) : [];
+                mistakesText = parsed.length > 0 ? parsed.join(', ') : 'Xato yo\'q';
+            } catch(e) { mistakesText = w.latest_mistakes || '-'; }
+
+            html += `
+                <tr>
+                    <td>
+                        <strong>${w.full_name}</strong>
+                        ${isTop ? ' ⭐ <span style="color:var(--accent-gold); font-size:10px;">EXPERT</span>' : ''}
+                    </td>
+                    <td><small style="color:var(--text-muted);">${w.phone || '-'}</small></td>
+                    <td style="color:${isTop ? 'var(--accent-green)' : 'var(--text-primary)'}; font-weight:700;">
+                        ${Math.round(w.best_score)}%
+                    </td>
+                    <td>
+                        <span style="color:${mistakesText.includes('BIQS') ? 'var(--accent-red)' : 'var(--text-muted)'}; font-size:11px;">
+                            ${mistakesText}
+                        </span>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table>`;
+        container.innerHTML = html;
+    } catch (e) {
+        console.error("Error fetching my team data", e);
+        container.innerHTML = `<p style="color:var(--accent-red); padding:15px;">Ошибка загрузки данных цеха</p>`;
+    }
+}
+
 // Fetch Admin Data
 async function fetchAdminData() {
     try {
@@ -499,9 +594,50 @@ async function fetchAdminData() {
         const resWorkers = await fetch('/api/admin/workers');
         const workers = await resWorkers.json();
         renderAdminWorkers(workers);
+
+        const resAdmins = await fetch(`/api/admin/admins?telegram_id=${userTelegramId}`);
+        if (resAdmins.ok) {
+            const admins = await resAdmins.json();
+            renderAdminAdmins(admins);
+        }
     } catch (e) {
         console.error("Admin data fetch error", e);
     }
+}
+
+function renderAdminAdmins(admins) {
+    const container = document.getElementById("adminAdminsList");
+    if (!container) return;
+
+    if (!admins || admins.length === 0) {
+        container.innerHTML = `<p style="color:var(--text-muted);">Назначенных администраторов нет</p>`;
+        return;
+    }
+
+    let html = `
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ФИО (ID)</th>
+                    <th>Роль</th>
+                    <th>Права доступа</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    admins.forEach(a => {
+        html += `
+            <tr>
+                <td><strong>${a.full_name}</strong><br><small style="color:var(--text-muted);">${a.telegram_id}</small></td>
+                <td><span class="element-code-badge" style="background:var(--accent-purple); color:#fff;">${a.role || 'admin'}</span></td>
+                <td><small style="color:var(--accent-blue);">${a.permissions || 'all'}</small></td>
+            </tr>
+        `;
+    });
+
+    html += `</tbody></table>`;
+    container.innerHTML = html;
 }
 
 function renderActiveCodes(codes) {
@@ -516,8 +652,8 @@ function renderActiveCodes(codes) {
             <thead>
                 <tr>
                     <th>Код</th>
+                    <th>Роль</th>
                     <th>Участок</th>
-                    <th>Создал (ID)</th>
                     <th>Использован</th>
                 </tr>
             </thead>
@@ -525,6 +661,7 @@ function renderActiveCodes(codes) {
     `;
 
     codes.forEach(c => {
+        const isMaster = c.target_role === 'master';
         html += `
             <tr>
                 <td>
@@ -533,8 +670,12 @@ function renderActiveCodes(codes) {
                         ${c.code} <i class="fa-regular fa-copy" style="margin-left:5px;"></i>
                     </strong>
                 </td>
+                <td>
+                    <span style="font-size:10px; padding:2px 6px; border-radius:4px; background:${isMaster ? 'var(--accent-purple)' : 'rgba(255,255,255,0.1)'}; color:#fff;">
+                        ${isMaster ? '👨‍💼 Master' : '🎯 Worker'}
+                    </span>
+                </td>
                 <td>${c.shop_name}</td>
-                <td>${c.created_by}</td>
                 <td>${c.used_count} раз</td>
             </tr>
         `;
@@ -595,6 +736,8 @@ async function handleCreateCode(e) {
     e.preventDefault();
     const code = document.getElementById("newCodeInput").value.trim();
     const shop = document.getElementById("newShopInput").value.trim();
+    const targetRoleSelect = document.getElementById("newTargetRoleSelect");
+    const targetRole = targetRoleSelect ? targetRoleSelect.value : "worker";
 
     if (!code || !shop) return;
 
@@ -606,16 +749,48 @@ async function handleCreateCode(e) {
                 code: code,
                 shop_name: shop,
                 master_name: "Admin",
-                created_by: userTelegramId
+                created_by: userTelegramId,
+                target_role: targetRole
             })
         });
 
         if (res.ok) {
-            alert(`Код ${code} успешно создан!`);
+            alert(`✅ Код ${code} (${targetRole === 'master' ? 'Master' : 'Worker'}) успешно создан!`);
             document.getElementById("createCodeForm").reset();
             fetchAdminData();
         }
     } catch (err) {
         alert("Ошибка при создании кода");
+    }
+}
+
+async function handleAddAdmin(e) {
+    e.preventDefault();
+    const identifier = document.getElementById("adminIdentifierInput").value.trim();
+    if (!identifier) return;
+
+    const checkedPerms = Array.from(document.querySelectorAll('input[name="perm"]:checked')).map(el => el.value);
+
+    try {
+        const res = await fetch('/api/admin/add_admin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                identifier: identifier,
+                permissions: checkedPerms,
+                added_by: userTelegramId
+            })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+            alert(`✅ Пользователь ${data.user} назначен Администратором!`);
+            document.getElementById("addAdminForm").reset();
+            fetchAdminData();
+        } else {
+            alert(`❌ Ошибка: ${data.detail || "Пользователь не найден"}`);
+        }
+    } catch (err) {
+        alert("Ошибка при выче назначения администратора");
     }
 }

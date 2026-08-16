@@ -70,6 +70,10 @@
                 <i class="fa-solid fa-trophy"></i>
                 <span data-i18n="nav_leaderboard">Reyting</span>
             </button>
+            <button class="tab-btn hidden" id="myTeamTabBtn" data-tab="myTeamTab">
+                <i class="fa-solid fa-users-gear"></i>
+                <span data-i18n="nav_my_team">Mening Sexim</span>
+            </button>
             <button class="tab-btn admin-only-tab hidden" id="adminTabBtn" data-tab="adminTab">
                 <i class="fa-solid fa-user-shield"></i>
                 <span>Admin</span>
@@ -247,6 +251,26 @@
                 </div>
             </section>
 
+            <!-- Tab 3.5: My Team (Master / Chief Monitoring) -->
+            <section id="myTeamTab" class="tab-pane">
+                <div class="section-header">
+                    <div class="section-title">
+                        <i class="fa-solid fa-users-gear text-admin"></i>
+                        <h2 id="myTeamShopTitle">Mening sexim (Xodimlarim)</h2>
+                    </div>
+                    <p class="section-desc" id="myTeamShopSubtitle">Sexdagi barcha ishchilarning test ko'rsatkichlari va oxirgi xatolari</p>
+                </div>
+
+                <div class="admin-card">
+                    <h3><i class="fa-solid fa-users"></i> Sex xodimlari ro'yxati</h3>
+                    <div id="myTeamWorkersList" class="admin-table-container">
+                        <div class="loading-spinner">
+                            <i class="fa-solid fa-circle-notch fa-spin"></i>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Tab 4: Admin Panel (Protected) -->
             <section id="adminTab" class="tab-pane">
                 <div class="section-header">
@@ -262,6 +286,13 @@
                     <h3><i class="fa-solid fa-key"></i> Создать код приглашения</h3>
                     <form id="createCodeForm" class="admin-form">
                         <div class="form-group">
+                            <label>Роль целевого пользователя</label>
+                            <select id="newTargetRoleSelect" style="width:100%; padding:10px; border-radius:8px; background:var(--bg-lighter); color:var(--text-primary); border:1px solid rgba(255,255,255,0.1); font-size:14px;">
+                                <option value="worker">🎯 Работник / Xodim (Worker)</option>
+                                <option value="master">👨‍💼 Начальник / Sex Boshlig'i (Master)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label>Код приглашения</label>
                             <div style="display:flex; gap:10px;">
                                 <input type="text" id="newCodeInput" placeholder="Код (например: UZTH-SHOP4)" required style="flex:1;">
@@ -276,6 +307,37 @@
                             <i class="fa-solid fa-plus"></i> Сгенерировать Код
                         </button>
                     </form>
+                </div>
+
+                <!-- Add Admin Form -->
+                <div class="admin-card">
+                    <h3><i class="fa-solid fa-user-plus"></i> Назначить Администратора</h3>
+                    <form id="addAdminForm" class="admin-form">
+                        <div class="form-group">
+                            <label>Telegram ID или @username</label>
+                            <input type="text" id="adminIdentifierInput" placeholder="Например: 5543183063 или @username" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Права доступа (Permissions)</label>
+                            <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:5px; font-size:13px; color:var(--text-secondary);">
+                                <label style="display:flex; align-items:center; gap:5px;"><input type="checkbox" name="perm" value="create_codes" checked> Создавать коды</label>
+                                <label style="display:flex; align-items:center; gap:5px;"><input type="checkbox" name="perm" value="view_workers" checked> Просмотр рабочих</label>
+                                <label style="display:flex; align-items:center; gap:5px;"><input type="checkbox" name="perm" value="broadcast" checked> Рассылка</label>
+                                <label style="display:flex; align-items:center; gap:5px;"><input type="checkbox" name="perm" value="view_attacks"> Логи атак</label>
+                            </div>
+                        </div>
+                        <button type="submit" class="primary-btn btn-admin" style="margin-top:10px;">
+                            <i class="fa-solid fa-user-shield"></i> Выдать права Администратора
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Existing Admins List -->
+                <div class="admin-card">
+                    <h3><i class="fa-solid fa-user-tie"></i> Назначенные Администраторы</h3>
+                    <div id="adminAdminsList" class="admin-table-container">
+                        <!-- Loaded dynamically -->
+                    </div>
                 </div>
 
                 <!-- Existing Codes List -->
