@@ -357,6 +357,21 @@ async def log_if_not_admin(user_id: int, command: str) -> bool:
         return True
     return False
 
+# Handler for legacy '⚙️ Панель Администратора' button press (removes old keyboard)
+async def remove_old_admin_btn_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    db_user = database.get_user(user_id)
+    lang = db_user.get("language", "ru") if db_user else "ru"
+    
+    text = (
+        "ℹ️ <b>Admin paneli Mini App ilovasi ichiga ko'chirildi.</b>\n"
+        "<i>Eski tugma menyudan o'chirildi. Yangi menyudan foydalaning 👇</i>"
+    ) if lang == 'uz' else (
+        "ℹ️ <b>Панель администратора находится внутри Mini App.</b>\n"
+        "<i>Старая кнопка удалена из меню. Используйте новое меню ниже 👇</i>"
+    )
+    await update.message.reply_html(text, reply_markup=get_main_keyboard(lang, user_id))
+
 # Admin Panel Handler (/admin)
 async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -769,7 +784,7 @@ def create_bot_app(webhook_mode: bool = False):
 
     application.add_handler(MessageHandler(filters.Regex("^(🚀 Test va o'quv platformasi|🚀 Платформа обучения|🚀 BIQS Mini App-ni ochish|🚀 Открыть BIQS Mini App)$"), start_command))
     application.add_handler(MessageHandler(filters.Regex("^(👥 Mening sexim \(Xodimlarim\)|👥 Мой цех \(Сотрудники\))$"), my_team_handler))
-    application.add_handler(MessageHandler(filters.Regex("^(⚙️ Admin paneli|⚙️ Панель Администратора)$"), admin_command))
+    application.add_handler(MessageHandler(filters.Regex("^(⚙️ Admin paneli|⚙️ Панель Администратора)$"), remove_old_admin_btn_handler))
     application.add_handler(MessageHandler(filters.Regex("^(👨‍💼 Создатель|👨‍💼 Yaratuvchi|👨‍💼 Asoschi)$"), founder_handler))
     application.add_handler(MessageHandler(filters.Regex("^(🆘 Техподдержка|🆘 Texnik yordam)$"), support_handler))
     
