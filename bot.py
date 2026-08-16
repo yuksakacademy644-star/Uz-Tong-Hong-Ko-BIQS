@@ -65,8 +65,6 @@ def get_main_keyboard(lang: str = 'ru', user_id: int = None):
     if lang == 'uz':
         kb = [[KeyboardButton("🚀 BIQS Mini App-ni ochish", web_app=WebAppInfo(url=url))]]
         middle_row = []
-        if is_admin:
-            middle_row.append(KeyboardButton("⚙️ Admin paneli"))
         if role == 'master' or is_admin:
             middle_row.append(KeyboardButton("👥 Mening sexim (Xodimlarim)"))
         if middle_row:
@@ -75,8 +73,6 @@ def get_main_keyboard(lang: str = 'ru', user_id: int = None):
     else:
         kb = [[KeyboardButton("🚀 Открыть BIQS Mini App", web_app=WebAppInfo(url=url))]]
         middle_row = []
-        if is_admin:
-            middle_row.append(KeyboardButton("⚙️ Панель Администратора"))
         if role == 'master' or is_admin:
             middle_row.append(KeyboardButton("👥 Мой цех (Сотрудники)"))
         if middle_row:
