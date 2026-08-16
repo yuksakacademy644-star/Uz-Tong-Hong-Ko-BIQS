@@ -148,8 +148,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg_text = (
             "Assalomu alaykum, botimizga xush kelibsiz! 👋\n"
             "Ushbu bot xodimlarimiz BIQS sifat standartlarini bilishlari uchun yaratilgan.\n\n"
-            "🔑 <b>Administratorning kirish kodini kiriting:</b>\n"
-            "<i>(Введите код приглашения от администратора:)</i>"
+            "🔑 <b>Administratorning kirish kodini kiriting:</b>"
         )
         await update.message.reply_html(msg_text, reply_markup=ReplyKeyboardRemove())
         return WAITING_FOR_INVITE_CODE
@@ -161,9 +160,8 @@ async def process_invite_code(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     if not code_data:
         await update.message.reply_html(
-            "❌ <b>Неверный код приглашения!</b>\n"
-            "Пожалуйста, проверьте код и введите его снова:\n\n"
-            "<i>Xato kirish kodi! Qayta kiriting:</i>",
+            "❌ <b>Xato kirish kodi!</b>\n"
+            "Iltimos, kodni tekshirib qayta kiriting:",
             reply_markup=ReplyKeyboardRemove()
         )
         return WAITING_FOR_INVITE_CODE
@@ -172,16 +170,15 @@ async def process_invite_code(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data["shop_name"] = code_data["shop_name"]
     
     await update.message.reply_html(
-        "✅ <b>Код принят!</b>\n\n"
-        "👤 Пожалуйста, введите ваше <b>Имя и Фамилию</b>:\n"
-        "<i>(Iltimos, Ism va Familiyangizni kiriting:)</i>"
+        "✅ <b>Kod qabul qilindi!</b>\n\n"
+        "👤 Iltimos, <b>Ism va Familiyangizni</b> kiriting:"
     )
     return WAITING_FOR_FULL_NAME
 
 async def process_full_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["full_name"] = update.message.text.strip()
     
-    text = "🌐 <b>Выберите язык интерфейса / Tilni tanlang:</b>"
+    text = "🌐 <b>Tilni tanlang / Выберите язык интерфейса:</b>"
     await update.message.reply_html(text, reply_markup=get_language_inline_keyboard())
     return ConversationHandler.END
 
