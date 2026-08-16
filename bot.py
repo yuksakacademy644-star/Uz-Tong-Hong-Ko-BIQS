@@ -146,10 +146,10 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["username"] = user.username or ""
         
         msg_text = (
-            "Ассалому алейкум, добро пожаловать в наш бот! 👋\n"
-            "Этот бот создан, чтобы наши работники знали стандарты по качеству BIQS.\n\n"
-            "🔑 <b>Введите код приглашения от администратора:</b>\n"
-            "<i>(Administratorning kirish kodini kiriting:)</i>"
+            "Assalomu alaykum, botimizga xush kelibsiz! 👋\n"
+            "Ushbu bot xodimlarimiz BIQS sifat standartlarini bilishlari uchun yaratilgan.\n\n"
+            "🔑 <b>Administratorning kirish kodini kiriting:</b>\n"
+            "<i>(Введите код приглашения от администратора:)</i>"
         )
         await update.message.reply_html(msg_text, reply_markup=ReplyKeyboardRemove())
         return WAITING_FOR_INVITE_CODE
@@ -216,14 +216,12 @@ async def set_language_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     if lang == 'uz':
         confirm_text = (
-            f"Ассалому алейкум, добро пожаловать в наш бот!\n"
             f"Assalomu alaykum, botimizga xush kelibsiz!\n\n"
             f"🚀 Platformani ochish uchun pastdagi menyudan foydalaning."
         )
     else:
         confirm_text = (
-            f"Ассалому алейкум, добро пожаловать в наш бот!\n"
-            f"Assalomu alaykum, botimizga xush kelibsiz!\n\n"
+            f"Добро пожаловать в наш бот!\n\n"
             f"🚀 Для открытия платформы используйте меню ниже."
         )
 
