@@ -22,7 +22,9 @@ def init_db():
         invite_code TEXT,
         shop_name TEXT,
         master_name TEXT,
-        registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        role TEXT DEFAULT 'worker',
+        permissions TEXT DEFAULT ''
     )
     """)
 
@@ -35,7 +37,8 @@ def init_db():
         created_by INTEGER,
         used_count INTEGER DEFAULT 0,
         max_uses INTEGER DEFAULT 9999,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        target_role TEXT DEFAULT 'worker'
     )
     """)
 
@@ -64,6 +67,19 @@ def init_db():
     )
     """)
 
+    # Migrations for existing DB
+    cursor.execute("PRAGMA table_info(users)")
+    cols = [r[1] for r in cursor.fetchall()]
+    if 'role' not in cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'worker'")
+    if 'permissions' not in cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN permissions TEXT DEFAULT ''")
+
+    cursor.execute("PRAGMA table_info(invite_codes)")
+    code_cols = [r[1] for r in cursor.fetchall()]
+    if 'target_role' not in code_cols:
+        cursor.execute("ALTER TABLE invite_codes ADD COLUMN target_role TEXT DEFAULT 'worker'")
+
     conn.commit()
     conn.close()
 
@@ -83,13 +99,13 @@ def get_user(telegram_id: int):
     conn.close()
     return dict(row) if row else None
 
-def create_user(telegram_id: int, full_name: str, username: str, phone: str, invite_code: str, shop_name: str, language: str = 'ru'):
+def create_user(telegram_id: int, full_name: str, username: str, phone: str, invite_code: str, shop_name: str, language: str = 'ru', role: str = 'worker'):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""
-    INSERT OR REPLACE INTO users (telegram_id, full_name, username, phone, language, invite_code, shop_name, master_name)
-    VALUES (?, ?, ?, ?, ?, ?, ?, '')
-    """, (telegram_id, full_name, username, phone, language, invite_code, shop_name))
+    INSERT OR REPLACE INTO users (telegram_id, full_name, username, phone, language, invite_code, shop_name, master_name, role)
+    VALUES (?, ?, ?, ?, ?, ?, ?, '', ?)
+    """, (telegram_id, full_name, username, phone, language, invite_code, shop_name, role))
     
     # Update code used count
     cursor.execute("UPDATE invite_codes SET used_count = used_count + 1 WHERE code = ?", (invite_code,))
@@ -113,13 +129,13 @@ def get_invite_code(code: str):
     conn.close()
     return dict(row) if row else None
 
-def add_invite_code(code: str, shop_name: str, master_name: str, created_by: int):
+def add_invite_code(code: str, shop_name: str, master_name: str, created_by: int, target_role: str = 'worker'):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""
-    INSERT OR REPLACE INTO invite_codes (code, shop_name, master_name, created_by)
-    VALUES (?, ?, ?, ?)
-    """, (code.strip().upper(), shop_name, master_name, created_by))
+    INSERT OR REPLACE INTO invite_codes (code, shop_name, master_name, created_by, target_role)
+    VALUES (?, ?, ?, ?, ?)
+    """, (code.strip().upper(), shop_name, master_name, created_by, target_role))
     conn.commit()
     conn.close()
 
@@ -130,6 +146,86 @@ def get_all_invite_codes():
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+def get_shop_workers(shop_name: str):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+    SELECT u.telegram_id, u.full_name, u.username, u.phone, u.shop_name, u.role, u.invite_code,
+           COALESCE(MAX(tr.percentage), 0) as best_score,
+           COUNT(tr.id) as tests_completed,
+           (SELECT mistakes FROM test_results tr2 WHERE tr2.user_telegram_id = u.telegram_id ORDER BY completed_at DESC LIMIT 1) as latest_mistakes
+    FROM users u
+    LEFT JOIN test_results tr ON u.telegram_id = tr.user_telegram_id
+    WHERE u.shop_name = ? AND (u.role IS NULL OR u.role = 'worker')
+    GROUP BY u.telegram_id
+    ORDER BY best_score DESC
+    """, (shop_name,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def get_all_admins():
+    import config
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+    SELECT telegram_id, full_name, username, role, permissions
+    FROM users
+    WHERE role IN ('admin', 'superadmin') OR telegram_id IN ({})
+    """.format(','.join('?' for _ in config.ADMIN_IDS)), config.ADMIN_IDS)
+    rows = cursor.fetchall()
+    conn.close()
+    admins = [dict(r) for r in rows]
+    # Ensure superadmins have superadmin role in return
+    for a in admins:
+        if a["telegram_id"] in config.ADMIN_IDS:
+            a["role"] = "superadmin"
+            a["permissions"] = "all"
+    return admins
+
+def set_user_role_and_permissions(telegram_id: int, role: str, permissions):
+    conn = get_db()
+    cursor = conn.cursor()
+    perm_str = ",".join(permissions) if isinstance(permissions, (list, set)) else str(permissions or "")
+    cursor.execute("UPDATE users SET role = ?, permissions = ? WHERE telegram_id = ?", (role, perm_str, telegram_id))
+    conn.commit()
+    conn.close()
+
+def get_user_by_username_or_id(identifier: str):
+    conn = get_db()
+    cursor = conn.cursor()
+    identifier = identifier.strip().lstrip("@")
+    if identifier.isdigit():
+        cursor.execute("SELECT * FROM users WHERE telegram_id = ?", (int(identifier),))
+    else:
+        cursor.execute("SELECT * FROM users WHERE LOWER(username) = LOWER(?)", (identifier.lower(),))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def is_admin_or_superadmin(telegram_id: int):
+    import config
+    if telegram_id in config.ADMIN_IDS:
+        return True
+    user = get_user(telegram_id)
+    if user and user.get("role") in ("admin", "superadmin"):
+        return True
+    return False
+
+def check_user_permission(telegram_id: int, permission: str):
+    import config
+    if telegram_id in config.ADMIN_IDS:
+        return True
+    user = get_user(telegram_id)
+    if not user:
+        return False
+    if user.get("role") == "superadmin":
+        return True
+    if user.get("role") == "admin":
+        perms = (user.get("permissions") or "").split(",")
+        return permission in perms or "all" in perms or "*" in perms
+    return False
 
 # Test Result functions
 def save_test_result(telegram_id: int, score: int, total: int, percentage: float, time_taken: int, mistakes: str = ""):

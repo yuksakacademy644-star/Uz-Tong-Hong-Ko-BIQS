@@ -56,18 +56,32 @@ def set_webapp_url(url: str):
             logger.warning(f"[BOT WARN] Failed to schedule menu button update: {e}")
 
 
-def get_main_keyboard(lang: str = 'ru'):
+def get_main_keyboard(lang: str = 'ru', user_id: int = None):
     url = WEBAPP_URL
+    is_admin = database.is_admin_or_superadmin(user_id) if user_id else False
+    user = database.get_user(user_id) if user_id else None
+    role = user.get("role", "worker") if user else "worker"
+
     if lang == 'uz':
-        kb = [
-            [KeyboardButton("🚀 BIQS Mini App-ni ochish", web_app=WebAppInfo(url=url))],
-            [KeyboardButton("👨‍💼 Yaratuvchi"), KeyboardButton("🆘 Texnik yordam")]
-        ]
+        kb = [[KeyboardButton("🚀 BIQS Mini App-ni ochish", web_app=WebAppInfo(url=url))]]
+        middle_row = []
+        if is_admin:
+            middle_row.append(KeyboardButton("⚙️ Admin paneli"))
+        if role == 'master' or is_admin:
+            middle_row.append(KeyboardButton("👥 Mening sexim (Xodimlarim)"))
+        if middle_row:
+            kb.append(middle_row)
+        kb.append([KeyboardButton("👨‍💼 Yaratuvchi"), KeyboardButton("🆘 Texnik yordam")])
     else:
-        kb = [
-            [KeyboardButton("🚀 Открыть BIQS Mini App", web_app=WebAppInfo(url=url))],
-            [KeyboardButton("👨‍💼 Создатель"), KeyboardButton("🆘 Техподдержка")]
-        ]
+        kb = [[KeyboardButton("🚀 Открыть BIQS Mini App", web_app=WebAppInfo(url=url))]]
+        middle_row = []
+        if is_admin:
+            middle_row.append(KeyboardButton("⚙️ Панель Администратора"))
+        if role == 'master' or is_admin:
+            middle_row.append(KeyboardButton("👥 Мой цех (Сотрудники)"))
+        if middle_row:
+            kb.append(middle_row)
+        kb.append([KeyboardButton("👨‍💼 Создатель"), KeyboardButton("🆘 Техподдержка")])
     return ReplyKeyboardMarkup(kb, resize_keyboard=True)
 
 def get_webapp_inline_keyboard(lang: str = 'ru'):
@@ -95,7 +109,7 @@ def get_language_inline_keyboard():
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     db_user = database.get_user(user.id)
-    is_admin = user.id in config.ADMIN_IDS
+    is_admin = user.id in config.ADMIN_IDS or (db_user and db_user.get("role") in ("admin", "superadmin"))
 
     # ✅ Force-update this specific user's Telegram Chat Menu Button to Production URL
     try:
@@ -110,7 +124,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.warning(f"[BOT WARN] Could not update menu button for user {user.id}: {e}")
 
     # ✅ Admin / Creator auto-bypass: Never ask Administrator for invite code!
-    if not db_user and is_admin:
+    if not db_user and user.id in config.ADMIN_IDS:
         database.create_user(
             telegram_id=user.id,
             full_name=user.full_name or user.first_name,
@@ -118,7 +132,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             phone="",
             invite_code="ADMIN",
             shop_name="Администрация",
-            language="ru"
+            language="ru",
+            role="superadmin"
         )
         db_user = database.get_user(user.id)
 
@@ -138,7 +153,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         await update.message.reply_html(
             text,
-            reply_markup=get_main_keyboard(lang)
+            reply_markup=get_main_keyboard(lang, user.id)
         )
         return ConversationHandler.END
     else:
@@ -168,6 +183,7 @@ async def process_invite_code(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     context.user_data["invite_code"] = code_text
     context.user_data["shop_name"] = code_data["shop_name"]
+    context.user_data["target_role"] = code_data.get("target_role", "worker")
     
     await update.message.reply_html(
         "✅ <b>Kod qabul qilindi!</b>\n\n"
@@ -200,6 +216,7 @@ async def set_language_callback(update: Update, context: ContextTypes.DEFAULT_TY
         phone = context.user_data.get("phone", "")
         invite_code = context.user_data.get("invite_code", "UZTH-BIQS2026")
         shop_name = context.user_data.get("shop_name", "Сотрудник Уз Тонг Хонг Ко")
+        target_role = context.user_data.get("target_role", "worker")
 
         database.create_user(
             telegram_id=user_id,
@@ -208,7 +225,8 @@ async def set_language_callback(update: Update, context: ContextTypes.DEFAULT_TY
             phone=phone,
             invite_code=invite_code,
             shop_name=shop_name,
-            language=lang
+            language=lang,
+            role=target_role
         )
 
     if lang == 'uz':
@@ -222,18 +240,78 @@ async def set_language_callback(update: Update, context: ContextTypes.DEFAULT_TY
             f"🚀 Для открытия платформы используйте меню ниже."
         )
 
-    # Delete the inline language selection message to clean up the chat
     try:
         await query.message.delete()
     except:
         pass
 
-    # Send final welcome text with bottom menu reply keyboard
     await context.bot.send_message(
         chat_id=user_id,
         text=confirm_text,
-        reply_markup=get_main_keyboard(lang)
+        reply_markup=get_main_keyboard(lang, user_id)
     )
+
+# Master / Chief Team Monitoring Handler
+async def my_team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    db_user = database.get_user(user_id)
+    if not db_user:
+        await update.message.reply_text("Iltimos, avval /start buyrug'i orqali ro'yxatdan o'ting.")
+        return
+    
+    lang = db_user.get("language", "uz")
+    shop_name = db_user.get("shop_name", "СП Уз Тонг Хонг Ко")
+    role = db_user.get("role", "worker")
+    is_admin = database.is_admin_or_superadmin(user_id)
+    
+    if role != 'master' and not is_admin:
+        await update.message.reply_text("⚠️ Bu bo'lim faqat sex boshliqlari (masterlar) va adminlar uchun mo'ljallangan.")
+        return
+
+    workers = database.get_shop_workers(shop_name)
+    
+    if lang == 'uz':
+        if not workers:
+            msg = f"🏭 <b>{shop_name}</b> sexi bo'yicha hali birorta ham xodim ro'yxatdan o'tmagan."
+        else:
+            msg = f"👥 <b>MENING SEXIM (XODIMLARIM) — {shop_name}</b>\n\n"
+            msg += f"📊 <b>Jami xodimlar soni:</b> {len(workers)} ta\n\n"
+            for idx, w in enumerate(workers, 1):
+                badge = " 🌟 BIQS Mutaxassisi" if w['best_score'] >= 80 else ""
+                msg += f"{idx}. <b>{w['full_name']}</b>{badge}\n"
+                msg += f"   🎯 Eng yaxshi natija: <b>{round(w['best_score'])}%</b> | 📝 Testlar: {w['tests_completed']} marta\n"
+                if w.get('latest_mistakes'):
+                    import json
+                    try:
+                        m_list = json.loads(w['latest_mistakes'])
+                        m_str = ", ".join(m_list) if isinstance(m_list, list) else str(w['latest_mistakes'])
+                    except:
+                        m_str = str(w['latest_mistakes'])
+                    if m_str:
+                        msg += f"   ⚠️ Oxirgi xatolari: <i>{m_str}</i>\n"
+                msg += "\n"
+    else:
+        if not workers:
+            msg = f"🏭 По цеху/сектору <b>{shop_name}</b> пока нет зарегистрированных работников."
+        else:
+            msg = f"👥 <b>МОЙ ЦЕХ (СОТРУДНИКИ) — {shop_name}</b>\n\n"
+            msg += f"📊 <b>Всего сотрудников:</b> {len(workers)}\n\n"
+            for idx, w in enumerate(workers, 1):
+                badge = " 🌟 Эксперт BIQS" if w['best_score'] >= 80 else ""
+                msg += f"{idx}. <b>{w['full_name']}</b>{badge}\n"
+                msg += f"   🎯 Лучший результат: <b>{round(w['best_score'])}%</b> | 📝 Попыток: {w['tests_completed']}\n"
+                if w.get('latest_mistakes'):
+                    import json
+                    try:
+                        m_list = json.loads(w['latest_mistakes'])
+                        m_str = ", ".join(m_list) if isinstance(m_list, list) else str(w['latest_mistakes'])
+                    except:
+                        m_str = str(w['latest_mistakes'])
+                    if m_str:
+                        msg += f"   ⚠️ Последние ошибки: <i>{m_str}</i>\n"
+                msg += "\n"
+
+    await update.message.reply_html(msg, reply_markup=get_main_keyboard(lang, user_id))
 
 # Statistics Button Handler
 async def show_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -276,7 +354,7 @@ async def change_lang_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.message.reply_html(text, reply_markup=get_language_inline_keyboard())
 
 async def log_if_not_admin(user_id: int, command: str) -> bool:
-    if user_id not in config.ADMIN_IDS:
+    if not database.is_admin_or_superadmin(user_id):
         db_user = database.get_user(user_id)
         if db_user:
             database.log_attack(user_id, f"Попытка доступа к {command}")
@@ -286,37 +364,39 @@ async def log_if_not_admin(user_id: int, command: str) -> bool:
 # Admin Panel Handler (/admin)
 async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    if await log_if_not_admin(user_id, "/admin"):
+    if not database.is_admin_or_superadmin(user_id):
+        await log_if_not_admin(user_id, "/admin")
         return
 
     codes = database.get_all_invite_codes()
     workers = database.get_all_workers_admin()
     experts = [w for w in workers if w["best_score"] >= 80]
-
-    shop_stats = database.get_shop_statistics()
-    best_shop = shop_stats[0] if shop_stats else None
-    worst_shop = sorted(shop_stats, key=lambda x: x["total_mistakes"], reverse=True)[0] if shop_stats else None
-
-    stats_msg = "📊 <b>Статистика по линиям (цехам):</b>\n"
-    if best_shop:
-        stats_msg += f"🏆 <b>Лучшая линия:</b> {best_shop['shop_name']} ({best_shop['master_name']}) — Ср. балл: {round(best_shop['avg_score'] or 0)}%\n"
-    if worst_shop:
-        stats_msg += f"⚠️ <b>Линия с ошибками:</b> {worst_shop['shop_name']} ({worst_shop['master_name']}) — Ошибок: {worst_shop['total_mistakes'] or 0}\n"
+    admins = database.get_all_admins()
 
     text = (
         f"⚙️ <b>ПАНЕЛЬ АДМИНИСТРАТОРА UZ TONG HONG KO</b>\n\n"
-        f"👥 <b>Всего сотрудников в системе:</b> {len(workers)}\n"
+        f"👥 <b>Всего сотрудников:</b> {len(workers)}\n"
         f"🌟 <b>Экспертов BIQS (80%+):</b> {len(experts)}\n"
-        f"🔑 <b>Активных кодов приглашения:</b> {len(codes)}\n\n"
-        f"{stats_msg}\n"
-        f"📌 <b>Команды Администратора:</b>\n"
-        f"• <code>/newcode KOD SHOP MASTER</code> — Создать код\n"
-        f"• <code>/workers</code> — Показать список сотрудников\n"
+        f"🔑 <b>Активных кодов приглашения:</b> {len(codes)}\n"
+        f"👔 <b>Назначенных админов:</b> {len(admins)}\n\n"
+        f"📌 <b>Основные команды:</b>\n"
+        f"• <code>/newcode KOD [ROLE] SHOP</code> — Создать код (role: worker/master)\n"
+        f"• <code>/addadmin ID_OR_USERNAME [PERMS]</code> — Назначить админа\n"
+        f"• <code>/workers</code> — Список всех работников\n"
+        f"• <code>/myteam</code> — Просмотр работников своего цеха\n"
     )
     keyboard = [
-        [InlineKeyboardButton("🛡 Атака", callback_data="admin_attack_summary")],
-        [InlineKeyboardButton("🔍 Атака детально", callback_data="admin_attack_detailed")],
-        [InlineKeyboardButton("📢 Объявления", callback_data="admin_broadcast_prompt")]
+        [
+            InlineKeyboardButton("🔑 Создать код", callback_data="admin_create_code_prompt"),
+            InlineKeyboardButton("👔 Админы", callback_data="admin_manage_admins")
+        ],
+        [
+            InlineKeyboardButton("👥 Сотрудники", callback_data="admin_view_workers"),
+            InlineKeyboardButton("🛡 Атаки", callback_data="admin_attack_summary")
+        ],
+        [
+            InlineKeyboardButton("📢 Объявления", callback_data="admin_broadcast_prompt")
+        ]
     ]
     await update.message.reply_html(text, reply_markup=InlineKeyboardMarkup(keyboard))
 
@@ -335,7 +415,8 @@ async def founder_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Force Keyboard Update for ALL users (admin only — run once)
 async def update_keyboards_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    if await log_if_not_admin(user_id, "/update_kb"):
+    if not database.is_admin_or_superadmin(user_id):
+        await log_if_not_admin(user_id, "/update_kb")
         return
 
     workers = database.get_all_workers_admin()
@@ -354,7 +435,7 @@ async def update_keyboards_command(update: Update, context: ContextTypes.DEFAULT
                 chat_id=w["telegram_id"],
                 text=msg_text,
                 parse_mode="HTML",
-                reply_markup=get_main_keyboard(lang)
+                reply_markup=get_main_keyboard(lang, w["telegram_id"])
             )
             success += 1
             await asyncio.sleep(0.05)
@@ -394,34 +475,102 @@ async def support_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Admin Command: /newcode
 async def newcode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    if await log_if_not_admin(user_id, "/newcode"):
+    if not database.check_user_permission(user_id, "create_codes"):
+        await update.message.reply_html("⚠️ <b>Ruxsat berilmadi!</b> Sizda kod yaratish huquqi yo'q.")
         return
 
     args = context.args
     if len(args) < 1:
         await update.message.reply_html(
-            "⚠️ <b>Формат команды:</b>\n"
-            "<code>/newcode &lt;КОД&gt; [НАЗВАНИЕ_ЦЕХА]</code>\n\n"
-            "<i>Пример:</i> <code>/newcode UZTH-SHOP1 1-Sekh (Payvandlash)</code>"
+            "⚠️ <b>Формат команды / Kod yaratish formati:</b>\n"
+            "<code>/newcode &lt;KOD&gt; [worker|master] [SEX_NOMI]</code>\n\n"
+            "<i>Misollar (Примеры):</i>\n"
+            "• <b>Работник:</b> <code>/newcode WORKER1 worker 1-Sekh (Payvandlash)</code>\n"
+            "• <b>Начальник:</b> <code>/newcode CHIEF1 master 1-Sekh (Payvandlash)</code>"
         )
         return
 
     code = args[0].upper()
-    shop_name = " ".join(args[1:]) if len(args) > 1 else "СП Уз Тонг Хонг Ко"
+    target_role = "worker"
+    shop_startIndex = 1
+
+    if len(args) > 1 and args[1].lower() in ["worker", "master", "xodim", "boshliq", "мастер", "работник"]:
+        val = args[1].lower()
+        if val in ["master", "boshliq", "мастер"]:
+            target_role = "master"
+        else:
+            target_role = "worker"
+        shop_startIndex = 2
+
+    shop_name = " ".join(args[shop_startIndex:]) if len(args) > shop_startIndex else "СП Уз Тонг Хонг Ко"
     master_name = "Руководство"
 
-    database.add_invite_code(code, shop_name, master_name, user_id)
+    database.add_invite_code(code, shop_name, master_name, user_id, target_role=target_role)
+
+    role_badge = "👨‍💼 Boshliq / Master" if target_role == 'master' else "🎯 Xodim / Worker"
 
     await update.message.reply_html(
-        f"✅ <b>Код успешно создан!</b>\n\n"
-        f"🔑 <b>Код:</b> <code>{code}</code>\n"
-        f"🏭 <b>Цех/Сектор:</b> <code>{shop_name}</code>"
+        f"✅ <b>Kod muvaffaqiyatli yaratildi! / Код создан!</b>\n\n"
+        f"🔑 <b>Kod:</b> <code>{code}</code>\n"
+        f"👤 <b>Roli:</b> <code>{role_badge}</code>\n"
+        f"🏭 <b>Sex/Sektor:</b> <code>{shop_name}</code>"
+    )
+
+# Admin Command: /addadmin
+async def addadmin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if not database.check_user_permission(user_id, "manage_admins"):
+        await update.message.reply_html("⚠️ <b>Ruxsat berilmadi!</b> Sizda admin tayinlash huquqi yo'q.")
+        return
+
+    args = context.args
+    if len(args) < 1:
+        await update.message.reply_html(
+            "⚠️ <b>Формат команды / Admin tayinlash:</b>\n"
+            "<code>/addadmin &lt;TG_ID yoki @username&gt; [huquqlar]</code>\n\n"
+            "<i>Misollar:</i>\n"
+            "• <code>/addadmin 5543183063 create_codes,view_workers,broadcast</code>\n"
+            "• <code>/addadmin @username all</code>\n\n"
+            "📌 <b>Mavjud huquqlar (Permissions):</b>\n"
+            "• <code>create_codes</code> — Kod yaratish\n"
+            "• <code>view_workers</code> — Xodimlarni ko'rish\n"
+            "• <code>view_attacks</code> — Xavfsizlik loglari\n"
+            "• <code>broadcast</code> — E'lon yuborish\n"
+            "• <code>manage_admins</code> — Adminlarni boshqarish\n"
+            "• <code>all</code> — Barcha huquqlar"
+        )
+        return
+
+    target_identifier = args[0]
+    target_user = database.get_user_by_username_or_id(target_identifier)
+
+    if not target_user:
+        await update.message.reply_html(
+            f"❌ <b>Foydalanuvchi topilmadi!</b>\n"
+            f"Foydalanuvchi <code>{target_identifier}</code> botdan avval ro'yxatdan o'tgan bo'lishi kerak."
+        )
+        return
+
+    perms = args[1] if len(args) > 1 else "create_codes,view_workers,broadcast"
+    if perms.lower() == "all":
+        perm_list = ["create_codes", "view_workers", "view_attacks", "broadcast", "manage_admins"]
+    else:
+        perm_list = [p.strip() for p in perms.split(",") if p.strip()]
+
+    database.set_user_role_and_permissions(target_user["telegram_id"], "admin", perm_list)
+
+    await update.message.reply_html(
+        f"✅ <b>Foydalanuvchiga ADMIN huquqi berildi!</b>\n\n"
+        f"👤 <b>Foydalanuvchi:</b> {target_user['full_name']} (ID: <code>{target_user['telegram_id']}</code>)\n"
+        f"🔑 <b>Roli:</b> <code>ADMIN</code>\n"
+        f"🛡 <b>Huquqlari:</b> <code>{', '.join(perm_list)}</code>"
     )
 
 # Admin Command: /workers
 async def workers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    if await log_if_not_admin(user_id, "/workers"):
+    if not database.check_user_permission(user_id, "view_workers"):
+        await update.message.reply_html("⚠️ Sizda xodimlarni ko'rish huquqi yo'q.")
         return
 
     workers = database.get_all_workers_admin()
@@ -433,7 +582,53 @@ async def workers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for idx, w in enumerate(workers, 1):
         is_top = w["best_score"] >= 80
         badge = " 🌟 <b>ЭКСПЕРТ BIQS</b>" if is_top else ""
-        msg += f"{idx}. <b>{w['full_name']}</b>{badge}\n"
+        msg += f"{idx}. <b>{w['full_name']}</b> ({w.get('shop_name') or 'Sex'}){badge}\n"
+        msg += f"   🎯 Natija: <b>{round(w['best_score'])}%</b> | {w['tests_completed']} попыток\n\n"
+
+    await update.message.reply_html(msg)
+
+async def admin_create_code_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    text = (
+        "🔑 <b>KOD YARATISH / СОЗДАНИЕ КОДА</b>\n\n"
+        "Buyruq orqali yaratishingiz mumkin:\n\n"
+        "• 🎯 <b>Xodim kodi (Код работника):</b>\n"
+        "<code>/newcode WORKER1 worker 1-Sekh</code>\n\n"
+        "• 👨‍💼 <b>Boshliq kodi (Код начальника):</b>\n"
+        "<code>/newcode CHIEF1 master 1-Sekh</code>"
+    )
+    await query.message.reply_html(text)
+
+async def admin_manage_admins(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    admins = database.get_all_admins()
+    
+    msg = "👔 <b>TAYINLANGAN ADMINLAR RO'YXATI (СПИСОК АДМИНИСТРАТОРОВ):</b>\n\n"
+    for idx, a in enumerate(admins, 1):
+        perm_str = a.get("permissions") or "all"
+        role_title = "👑 SUPERADMIN (Owner)" if a.get("role") == "superadmin" or a["telegram_id"] in config.ADMIN_IDS else "🛡 ADMIN"
+        msg += f"{idx}. <b>{a.get('full_name') or 'Admin'}</b> — {role_title}\n"
+        msg += f"   🆔 ID: <code>{a['telegram_id']}</code> | 👤 @{a.get('username') or 'yoq'}\n"
+        msg += f"   🔑 Huquqlar: <code>{perm_str}</code>\n\n"
+        
+    msg += "➕ Yangi admin tayinlash uchun: <code>/addadmin ID_YOKI_USERNAME huquqlar</code>"
+    await query.message.reply_html(msg)
+
+async def admin_view_workers(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    workers = database.get_all_workers_admin()
+    if not workers:
+        await query.message.reply_text("Сотрудники пока не зарегистрированы.")
+        return
+
+    msg = "📋 <b>СПИСОК СОТРУДНИКОВ И РЕЗУЛЬТАТЫ:</b>\n\n"
+    for idx, w in enumerate(workers, 1):
+        is_top = w["best_score"] >= 80
+        badge = " 🌟 <b>ЭКСПЕРТ BIQS</b>" if is_top else ""
+        msg += f"{idx}. <b>{w['full_name']}</b> ({w.get('shop_name') or 'Sex'}){badge}\n"
         msg += f"   🎯 Natija: <b>{round(w['best_score'])}%</b> | {w['tests_completed']} попыток\n\n"
 
     await update.message.reply_html(msg)
@@ -441,7 +636,8 @@ async def workers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_attack_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    if await log_if_not_admin(query.from_user.id, "Кнопка 'Атака' (Сводка)"):
+    if not database.check_user_permission(query.from_user.id, "view_attacks"):
+        await query.message.reply_text("⚠️ Sizda ushbu bo'limni ko'rish huquqi yo'q.")
         return
     attacks = database.get_attacks_summary()
     if not attacks:
@@ -455,7 +651,8 @@ async def admin_attack_summary(update: Update, context: ContextTypes.DEFAULT_TYP
 async def admin_attack_detailed(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    if await log_if_not_admin(query.from_user.id, "Кнопка 'Атака детально'"):
+    if not database.check_user_permission(query.from_user.id, "view_attacks"):
+        await query.message.reply_text("⚠️ Sizda ushbu bo'limni ko'rish huquqi yo'q.")
         return
     attacks = database.get_attacks_detailed()
     if not attacks:
@@ -484,10 +681,11 @@ async def admin_attack_detailed(update: Update, context: ContextTypes.DEFAULT_TY
 async def admin_broadcast_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    if await log_if_not_admin(query.from_user.id, "Кнопка 'Объявления'"):
+    if not database.check_user_permission(query.from_user.id, "broadcast"):
+        await query.message.reply_text("⚠️ Sizda e'lon yuborish huquqi yo'q.")
         return
     await query.message.reply_html(
-        "📢 <b>Рассылка объявлений</b>\n\n"
+        "📢 <b>Рассылка объявлений / E'lon yuborish</b>\n\n"
         "Отправьте текст объявления, которое будет разослано всем зарегистрированным сотрудникам.\n"
         "<i>Для отмены нажмите /cancel</i>"
     )
@@ -495,7 +693,7 @@ async def admin_broadcast_prompt(update: Update, context: ContextTypes.DEFAULT_T
 
 async def admin_broadcast_send(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    if await log_if_not_admin(user_id, "Отправка объявления"):
+    if not database.check_user_permission(user_id, "broadcast"):
         return ConversationHandler.END
     text = update.message.text
     workers = database.get_all_workers_admin()
@@ -543,11 +741,8 @@ def create_bot_app(webhook_mode: bool = False):
         .post_init(post_init_callback)
     )
     if webhook_mode:
-        # Webhook mode: Updater is NOT needed — Telegram pushes updates directly.
-        # This also avoids the Python 3.14 __slots__ bug in PTB 20.6's Updater.
         builder = builder.updater(None)
     application = builder.build()
-
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start_command)],
@@ -570,10 +765,15 @@ def create_bot_app(webhook_mode: bool = False):
     application.add_handler(admin_broadcast_handler)
 
     application.add_handler(CallbackQueryHandler(set_language_callback, pattern="^set_lang_"))
+    application.add_handler(CallbackQueryHandler(admin_create_code_prompt, pattern="^admin_create_code_prompt$"))
+    application.add_handler(CallbackQueryHandler(admin_manage_admins, pattern="^admin_manage_admins$"))
+    application.add_handler(CallbackQueryHandler(admin_view_workers, pattern="^admin_view_workers$"))
     application.add_handler(CallbackQueryHandler(admin_attack_summary, pattern="^admin_attack_summary$"))
     application.add_handler(CallbackQueryHandler(admin_attack_detailed, pattern="^admin_attack_detailed$"))
 
     application.add_handler(MessageHandler(filters.Regex("^(🚀 Test va o'quv platformasi|🚀 Платформа обучения|🚀 BIQS Mini App-ni ochish|🚀 Открыть BIQS Mini App)$"), start_command))
+    application.add_handler(MessageHandler(filters.Regex("^(👥 Mening sexim \(Xodimlarim\)|👥 Мой цех \(Сотрудники\))$"), my_team_handler))
+    application.add_handler(MessageHandler(filters.Regex("^(⚙️ Admin paneli|⚙️ Панель Администратора)$"), admin_command))
     application.add_handler(MessageHandler(filters.Regex("^(👨‍💼 Создатель|👨‍💼 Yaratuvchi|👨‍💼 Asoschi)$"), founder_handler))
     application.add_handler(MessageHandler(filters.Regex("^(🆘 Техподдержка|🆘 Texnik yordam)$"), support_handler))
     
@@ -600,7 +800,9 @@ def create_bot_app(webhook_mode: bool = False):
 
     application.add_handler(CommandHandler("admin", admin_command))
     application.add_handler(CommandHandler("newcode", newcode_command))
+    application.add_handler(CommandHandler("addadmin", addadmin_command))
     application.add_handler(CommandHandler("workers", workers_command))
+    application.add_handler(CommandHandler("myteam", my_team_handler))
     application.add_handler(CommandHandler("update_kb", update_keyboards_command))
 
     return application
