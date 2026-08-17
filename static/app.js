@@ -52,7 +52,10 @@ const i18n = {
         tests_passed: "Пройдено тестов",
         avg_result: "Средний балл",
         rank_worker: "Рабочий",
-        rank_master: "Мастер / Начальник",
+        rank_master: "Начальник цеха / Мастер",
+        rank_brigadier: "Бригадир",
+        rank_quality: "Инженер по качеству",
+        rank_director: "Руководство",
         rank_admin: "Администратор",
         rank_office_candidate: "Эксперт BIQS ⭐"
     },
@@ -86,6 +89,9 @@ const i18n = {
         avg_result: "O'rtacha ball",
         rank_worker: "Ishchi",
         rank_master: "Sex Boshlig'i / Master",
+        rank_brigadier: "Brigadir",
+        rank_quality: "Sifat nazorati",
+        rank_director: "Rahbariyat",
         rank_admin: "Administrator",
         rank_office_candidate: "BIQS Eksperti ⭐"
     }
@@ -216,13 +222,14 @@ async function fetchUserInfo() {
             // Update Badge role text
             const rankText = document.getElementById("rankBadgeText");
             if (rankText) {
-                if (userInfo.role === 'master') {
-                    rankText.textContent = currentLang === 'ru' ? "Мастер / Начальник" : "Sex Boshlig'i";
-                } else if (userInfo.is_admin || userInfo.role === 'admin' || userInfo.role === 'superadmin') {
-                    rankText.textContent = currentLang === 'ru' ? "Администратор" : "Administrator";
-                } else {
-                    rankText.textContent = currentLang === 'ru' ? "Рабочий" : "Ishchi";
-                }
+                let roleKey = 'rank_worker';
+                if (userInfo.role === 'master') roleKey = 'rank_master';
+                else if (userInfo.role === 'brigadier') roleKey = 'rank_brigadier';
+                else if (userInfo.role === 'quality') roleKey = 'rank_quality';
+                else if (userInfo.role === 'director') roleKey = 'rank_director';
+                else if (userInfo.is_admin || userInfo.role === 'admin' || userInfo.role === 'superadmin') roleKey = 'rank_admin';
+                
+                rankText.textContent = i18n[currentLang][roleKey] || userInfo.role;
             }
 
             if (userInfo.language) {
@@ -230,8 +237,9 @@ async function fetchUserInfo() {
                 updateLanguageUI();
             }
 
-            // If Master or Admin, show My Team Tab
-            if (userInfo.role === 'master' || userInfo.is_admin) {
+            // If Master, Brigadier, Quality, Director, or Admin, show My Team Tab
+            const canViewTeam = ['master', 'brigadier', 'quality', 'director', 'admin', 'superadmin'].includes(userInfo.role) || userInfo.is_admin;
+            if (canViewTeam) {
                 const teamBtn = document.getElementById("myTeamTabBtn");
                 if (teamBtn) teamBtn.classList.remove("hidden");
             }
@@ -506,10 +514,24 @@ function renderLeaderboard(leaders = []) {
 
         const isOfficeEligible = item.best_score >= 80;
 
+        const role = item.role || 'worker';
+        let roleBadge = '';
+        if (role === 'master') {
+            roleBadge = `<span class="leader-role-badge master"><i class="fa-solid fa-user-tie"></i> ${currentLang === 'ru' ? 'Начальник' : 'Sex boshlig\'i'}</span>`;
+        } else if (role === 'brigadier') {
+            roleBadge = `<span class="leader-role-badge brigadier"><i class="fa-solid fa-users-gear"></i> ${currentLang === 'ru' ? 'Бригадир' : 'Brigadir'}</span>`;
+        } else if (role === 'quality') {
+            roleBadge = `<span class="leader-role-badge quality"><i class="fa-solid fa-shield-halved"></i> ${currentLang === 'ru' ? 'Качество' : 'Sifat nazorati'}</span>`;
+        } else if (role === 'director') {
+            roleBadge = `<span class="leader-role-badge director"><i class="fa-solid fa-crown"></i> ${currentLang === 'ru' ? 'Руководство' : 'Rahbariyat'}</span>`;
+        } else if (role === 'admin' || role === 'superadmin') {
+            roleBadge = `<span class="leader-role-badge admin"><i class="fa-solid fa-user-shield"></i> Admin</span>`;
+        }
+
         div.innerHTML = `
             <div class="leader-rank">${rank}</div>
             <div class="leader-info">
-                <div class="leader-name">${item.full_name || 'Сотрудник'}</div>
+                <div class="leader-name">${item.full_name || 'Сотрудник'} ${roleBadge}</div>
                 <div class="leader-shop"><i class="fa-solid fa-industry"></i> ${item.shop_name}</div>
                 ${isOfficeEligible ? `<div class="office-eligible-badge"><i class="fa-solid fa-star"></i> ${i18n[currentLang].rank_office_candidate}</div>` : ''}
             </div>

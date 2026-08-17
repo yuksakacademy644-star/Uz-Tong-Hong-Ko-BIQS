@@ -262,7 +262,7 @@ def get_leaderboard(limit: int = 20):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""
-    SELECT u.telegram_id, u.full_name, u.shop_name, u.master_name,
+    SELECT u.telegram_id, u.full_name, u.shop_name, u.master_name, u.role,
            MAX(tr.percentage) as best_score, COUNT(tr.id) as total_attempts,
            MAX(tr.completed_at) as last_test
     FROM users u
