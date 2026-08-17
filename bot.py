@@ -798,14 +798,9 @@ def create_bot_app(webhook_mode: bool = False):
                 
     application.add_error_handler(error_handler)
 
+    # Silent fallback: ignore unrecognized text messages without replying
     async def global_fallback_text(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if isinstance(update, Update) and update.effective_message and update.effective_message.chat.type == "private":
-            await update.effective_message.reply_html(
-                "🔄 <b>Menyu yangilandi / Меню обновлено</b>\n"
-                "Eski tugmalar o'chirildi. Iltimos, /start buyrug'ini yuboring.\n"
-                "<i>Старые кнопки удалены. Пожалуйста, отправьте команду /start.</i>",
-                reply_markup=ReplyKeyboardRemove()
-            )
+        pass
 
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, global_fallback_text))
 
