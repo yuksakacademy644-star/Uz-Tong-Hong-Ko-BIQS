@@ -160,19 +160,24 @@ def main():
     # Check if Render Webhook bot is already online
     prod_url = getattr(config, "PRODUCTION_URL", "").rstrip("/")
     render_webhook_online = False
-    if prod_url:
+    force_poll = "--poll" in sys.argv
+    
+    if prod_url and not force_poll:
         try:
-            r = requests.get(f"{prod_url}/health", timeout=4)
+            print(f"[INIT] Checking if production bot is active at {prod_url} (waiting up to 60s for wake-up)...")
+            r = requests.get(f"{prod_url}/health", timeout=60)
             if r.status_code == 200 and r.json().get("mode") == "webhook":
                 render_webhook_online = True
-        except Exception:
+        except Exception as e:
+            print(f"[INIT] Production health check failed or timed out: {e}")
             render_webhook_online = False
 
-    if render_webhook_online:
+    if render_webhook_online and not force_poll:
         print("\n==================================================================")
         print("🟢 PRODUCTION BOT IS ACTIVE 24/7 ON RENDER (WEBHOOK MODE)!")
         print("⚡ All Telegram messages are handled instantly by Render.")
         print("🛡️ Local polling SKIPPED to preserve Render Webhook 24/7 uptime.")
+        print("💡 (To force local polling for testing, run with: python run.py --poll)")
         print("==================================================================\n")
         try:
             while True:
