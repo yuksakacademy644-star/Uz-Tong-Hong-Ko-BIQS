@@ -82,6 +82,14 @@ def init_db():
 
     conn.commit()
     conn.close()
+    cleanup_old_test_results()
+
+def cleanup_old_test_results():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM test_results WHERE completed_at < datetime('now', '-30 days')")
+    conn.commit()
+    conn.close()
 
 def clear_all_invite_codes():
     conn = get_db()
@@ -229,6 +237,7 @@ def check_user_permission(telegram_id: int, permission: str):
 
 # Test Result functions
 def save_test_result(telegram_id: int, score: int, total: int, percentage: float, time_taken: int, mistakes: str = ""):
+    cleanup_old_test_results()
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""

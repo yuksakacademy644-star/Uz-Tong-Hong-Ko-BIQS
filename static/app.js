@@ -9,7 +9,7 @@ if (tg) {
 
 // Global State
 let currentLang = 'ru'; // 'ru' or 'uz'
-let userTelegramId = 5543183063; // Fallback to Admin ID for browser dev testing
+let userTelegramId = 0; // Default to 0 (unauthorized)
 let userInfo = null;
 let biqsElements = [];
 let quizQuestions = [];
@@ -94,8 +94,16 @@ const i18n = {
 // Initialize App
 document.addEventListener("DOMContentLoaded", () => {
     // Extract Telegram User Data
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1' || 
+                        window.location.hostname.startsWith('192.168.');
+                        
     if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
         userTelegramId = tg.initDataUnsafe.user.id;
+    } else if (isLocalhost) {
+        userTelegramId = 5543183063; // Fallback to Admin ID ONLY for browser dev testing
+    } else {
+        userTelegramId = 0; // Force 0 on production if not inside Telegram
     }
 
     initTabs();
@@ -692,43 +700,74 @@ function renderAdminWorkers(workers) {
         return;
     }
 
-    let html = `
-        <table class="admin-table">
-            <thead>
-                <tr>
-                    <th>ФИО</th>
-                    <th>Участок / Тел</th>
-                    <th>Балл (Ошибки)</th>
-                    <th>Код</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-
+    // Group workers by shop_name
+    const groups = {};
     workers.forEach(w => {
-        const isTop = w.best_score >= 80;
+        const shop = w.shop_name || "Без цеха";
+        if (!groups[shop]) {
+            groups[shop] = [];
+        }
+        groups[shop].push(w);
+    });
+
+    let html = "";
+
+    // Generate HTML tables for each shop group separately
+    Object.keys(groups).sort().forEach(shopName => {
+        const shopWorkers = groups[shopName];
         html += `
-            <tr>
-                <td>
-                    <strong>${w.full_name}</strong>
-                    ${isTop ? ' ⭐ <span style="color:var(--accent-gold); font-size:10px;">В ОФИС</span>' : ''}
-                </td>
-                <td>${w.shop_name}<br><small style="color:var(--text-muted);">${w.phone || '-'}</small></td>
-                <td style="color:${isTop ? 'var(--accent-green)' : 'var(--text-primary)'}; font-weight:700;">
-                    ${Math.round(w.best_score)}%
-                    <br><small style="color:var(--accent-red); font-weight:normal; font-size:10px;">${(() => {
-                        try {
-                            const parsed = w.latest_mistakes ? JSON.parse(w.latest_mistakes) : [];
-                            return parsed.length > 0 ? parsed.join(', ') : '';
-                        } catch(e) { return w.latest_mistakes || ''; }
-                    })()}</small>
-                </td>
-                <td><code style="background:rgba(255,255,255,0.1); padding:2px 4px; border-radius:4px;">${w.invite_code}</code></td>
-            </tr>
+            <div class="shop-group-section" style="margin-bottom: 25px;">
+                <h4 style="color: var(--accent-blue); font-size: 15px; margin: 15px 0 10px 0; border-bottom: 2px solid rgba(255,255,255,0.05); padding-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+                    <span><i class="fa-solid fa-industry" style="margin-right:8px;"></i> ${shopName}</span>
+                    <span style="font-size:11px; background:rgba(255,255,255,0.1); padding:2px 8px; border-radius:10px; color:var(--text-secondary); font-weight:normal;">${shopWorkers.length} xodim</span>
+                </h4>
+                <div class="admin-table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>ФИО</th>
+                                <th>Тел</th>
+                                <th>Балл (Ошибки)</th>
+                                <th>Код</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+
+        shopWorkers.forEach(w => {
+            const isTop = w.best_score >= 80;
+            let mistakesText = "";
+            try {
+                const parsed = w.latest_mistakes ? JSON.parse(w.latest_mistakes) : [];
+                mistakesText = parsed.length > 0 ? parsed.join(', ') : '';
+            } catch(e) { 
+                mistakesText = w.latest_mistakes || ''; 
+            }
+
+            html += `
+                <tr>
+                    <td>
+                        <strong>${w.full_name}</strong>
+                        ${isTop ? ' ⭐ <span style="color:var(--accent-gold); font-size:10px;">В ОФИС</span>' : ''}
+                    </td>
+                    <td><small style="color:var(--text-muted);">${w.phone || '-'}</small></td>
+                    <td style="color:${isTop ? 'var(--accent-green)' : 'var(--text-primary)'}; font-weight:700;">
+                        ${Math.round(w.best_score)}%
+                        ${mistakesText ? `<br><small style="color:var(--accent-red); font-weight:normal; font-size:10px;">${mistakesText}</small>` : ''}
+                    </td>
+                    <td><code style="background:rgba(255,255,255,0.1); padding:2px 4px; border-radius:4px;">${w.invite_code}</code></td>
+                </tr>
+            `;
+        });
+
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         `;
     });
 
-    html += `</tbody></table>`;
     container.innerHTML = html;
 }
 
