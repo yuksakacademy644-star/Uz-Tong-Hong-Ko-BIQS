@@ -123,11 +123,35 @@ def init_banned_prompts_table():
             # Links
             ("http://", "link"), ("https://", "link"), ("t.me/", "link"),
             ("tg://", "link"), ("bit.ly", "link"), ("tinyurl.com", "link"),
-            ("www.", "link")
+            ("www.", "link"),
+            # Honeypot / Unauthorized Probing
+            ("/admin", "honeypot"), ("админ", "honeypot"), ("/panel", "honeypot"),
+            ("панель", "honeypot"), ("/setup", "honeypot"), ("secret_admin_panel", "honeypot"),
+            ("bot_token", "honeypot"),
+            # Obfuscation & Malicious Payloads
+            ("base64.b64decode", "code_injection"),
+            ("aHR0cHM6Ly9tYWxpY2lvdXM", "code_injection"),
+            ("payload =", "code_injection"),
+            ("requests.post", "code_injection"),
+            ("limit_req_zone", "attack_pattern"),
+            ("binary_remote_addr", "attack_pattern")
         ]
         cursor.executemany("INSERT OR IGNORE INTO banned_prompts (pattern, category) VALUES (?, ?)", default_patterns)
         conn.commit()
+
+    # Always ensure new patterns are inserted even if table already exists
+    extra_patterns = [
+        ("/admin", "honeypot"), ("админ", "honeypot"), ("/panel", "honeypot"),
+        ("панель", "honeypot"), ("/setup", "honeypot"), ("secret_admin_panel", "honeypot"),
+        ("bot_token", "honeypot"), ("base64.b64decode", "code_injection"),
+        ("aHR0cHM6Ly9tYWxpY2lvdXM", "code_injection"), ("payload =", "code_injection"),
+        ("requests.post", "code_injection"), ("limit_req_zone", "attack_pattern"),
+        ("binary_remote_addr", "attack_pattern")
+    ]
+    cursor.executemany("INSERT OR IGNORE INTO banned_prompts (pattern, category) VALUES (?, ?)", extra_patterns)
+    conn.commit()
     conn.close()
+
 
 
 def cleanup_old_test_results():
@@ -592,6 +616,11 @@ def check_security_violations(text: str, user_id: int = None):
 
     text_lower = text.lower().strip()
 
+    # Regex check for Telegram Bot Token leak / injection pattern
+    import re
+    if re.search(r'[0-9]{8,10}:[A-Za-z0-9_-]{35}', text):
+        return True, 'Утечка / Попытка внедрения Telegram Bot Token', 'Bot Token Regex ([0-9]{8..}:[A-Za-z0-9_-]{35})'
+
     banned_items = get_all_banned_prompts()
     for item in banned_items:
         pat = item['pattern'].lower()
@@ -604,13 +633,16 @@ def check_security_violations(text: str, user_id: int = None):
                 'prompt_injection': 'Вирусный промпт / Попытка взлома',
                 'sql_injection': 'SQL-Инъекция',
                 'xss': 'XSS-Атака',
-                'code_injection': 'Инъекция кода',
-                'command_injection': 'Системная команда'
+                'code_injection': 'Инъекция кода / Вредоносный скрипт',
+                'command_injection': 'Системная команда',
+                'honeypot': 'Ловушка / Попытка поиска Админ-панели (Honeypot)',
+                'attack_pattern': 'Вредоносный паттерн атаки'
             }
             violation_title = type_labels.get(cat, 'Запрещенный промпт')
             return True, violation_title, pat
 
     return False, None, None
+
 
 def log_attack(telegram_id: int, attempt_details: str):
 
