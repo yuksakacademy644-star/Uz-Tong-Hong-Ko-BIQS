@@ -536,7 +536,6 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("👔 Управление", callback_data="admin_manage_admins")
         ],
         [
-            InlineKeyboardButton("👥 Сотрудники", callback_data="admin_view_workers"),
             InlineKeyboardButton("🛡 Атаки", callback_data="admin_attack_summary")
         ],
         [
@@ -544,6 +543,7 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
     ]
     await update.message.reply_html(text, reply_markup=InlineKeyboardMarkup(keyboard))
+
 
 # Founder Button Handler
 async def founder_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -830,10 +830,12 @@ async def admin_manage_admins(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def admin_view_workers(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
+    msg_target = query.message if query else update.effective_message
+    if query:
+        await query.answer()
     workers = database.get_all_workers_admin()
     if not workers:
-        await query.message.reply_text("Сотрудники пока не зарегистрированы.")
+        await msg_target.reply_text("Сотрудники пока не зарегистрированы.")
         return
 
     msg = "📋 <b>СПИСОК СОТРУДНИКОВ И РЕЗУЛЬТАТЫ:</b>\n\n"
@@ -843,7 +845,8 @@ async def admin_view_workers(update: Update, context: ContextTypes.DEFAULT_TYPE)
         msg += f"{idx}. <b>{w['full_name']}</b> ({w.get('shop_name') or 'Sex'}){badge}\n"
         msg += f"   🎯 Natija: <b>{round(w['best_score'])}%</b> | {w['tests_completed']} попыток\n\n"
 
-    await update.message.reply_html(msg)
+    await msg_target.reply_html(msg)
+
 
 async def admin_attack_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
