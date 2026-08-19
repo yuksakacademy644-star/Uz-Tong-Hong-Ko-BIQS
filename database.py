@@ -128,6 +128,22 @@ def update_user_language(telegram_id: int, language: str):
     conn.commit()
     conn.close()
 
+def delete_user(telegram_id: int) -> bool:
+    """Delete a user and all their test results. Returns True if user was found and deleted."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT telegram_id FROM users WHERE telegram_id = ?", (telegram_id,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return False
+    cursor.execute("DELETE FROM test_results WHERE user_telegram_id = ?", (telegram_id,))
+    cursor.execute("DELETE FROM attacks WHERE telegram_id = ?", (telegram_id,))
+    cursor.execute("DELETE FROM users WHERE telegram_id = ?", (telegram_id,))
+    conn.commit()
+    conn.close()
+    return True
+
 # Invite Code DB functions
 def get_invite_code(code: str):
     conn = get_db()
@@ -155,25 +171,156 @@ def get_all_invite_codes():
     conn.close()
     return [dict(r) for r in rows]
 
+# ─────────────────────────────────────────────────────────────────
+# Role Hierarchy:
+#   superadmin > admin > nachalnik > master > brigadir > worker
+# ─────────────────────────────────────────────────────────────────
+ROLE_RANK = {
+    'superadmin': 100,
+    'admin':      90,
+    'nachalnik':  70,
+    'master':     50,
+    'brigadir':   30,
+    'worker':     10,
+}
+MANAGEMENT_ROLES = ('nachalnik', 'master', 'brigadir')
+
 def get_shop_workers(shop_name: str):
+    """Returns all workers in a shop (for nachalnik — full shop, excluding admins)."""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""
-    SELECT u.telegram_id, u.full_name, u.username, u.phone, u.shop_name, u.role, u.invite_code,
+    SELECT u.telegram_id, u.full_name, u.username, u.phone, u.shop_name, u.master_name,
+           u.role, u.invite_code,
            COALESCE(MAX(tr.percentage), 0) as best_score,
            COUNT(tr.id) as tests_completed,
-           (SELECT mistakes FROM test_results tr2 WHERE tr2.user_telegram_id = u.telegram_id ORDER BY completed_at DESC LIMIT 1) as latest_mistakes
+           (SELECT mistakes FROM test_results tr2
+            WHERE tr2.user_telegram_id = u.telegram_id
+            ORDER BY completed_at DESC LIMIT 1) as latest_mistakes
     FROM users u
     LEFT JOIN test_results tr ON u.telegram_id = tr.user_telegram_id
-    WHERE u.shop_name = ? AND (u.role IS NULL OR u.role = 'worker')
+    WHERE u.shop_name = ? AND u.role NOT IN ('superadmin','admin')
     GROUP BY u.telegram_id
-    ORDER BY best_score DESC
+    ORDER BY
+        CASE u.role
+            WHEN 'nachalnik' THEN 1
+            WHEN 'master'    THEN 2
+            WHEN 'brigadir'  THEN 3
+            ELSE 4
+        END,
+        best_score DESC
     """, (shop_name,))
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
+def get_subordinates(user_id: int):
+    """
+    Returns the team visible to this user based on role:
+    - nachalnik  → everyone in same shop (except admin/superadmin)
+    - master     → brigadirs + workers in same shop where master_name matches
+    - brigadir   → workers in same shop where master_name matches
+    - admin/superadmin → all workers
+    """
+    import config as _cfg
+    user = get_user(user_id)
+    if not user:
+        return []
+    role = user.get('role', 'worker')
+    shop = user.get('shop_name', '')
+    name = user.get('full_name', '')
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    base_select = """
+    SELECT u.telegram_id, u.full_name, u.username, u.phone, u.shop_name, u.master_name,
+           u.role, u.invite_code,
+           COALESCE(MAX(tr.percentage), 0) as best_score,
+           COUNT(tr.id) as tests_completed,
+           (SELECT mistakes FROM test_results tr2
+            WHERE tr2.user_telegram_id = u.telegram_id
+            ORDER BY completed_at DESC LIMIT 1) as latest_mistakes
+    FROM users u
+    LEFT JOIN test_results tr ON u.telegram_id = tr.user_telegram_id
+    """
+    order = """
+    GROUP BY u.telegram_id
+    ORDER BY
+        CASE u.role
+            WHEN 'nachalnik' THEN 1
+            WHEN 'master'    THEN 2
+            WHEN 'brigadir'  THEN 3
+            ELSE 4
+        END,
+        best_score DESC
+    """
+
+    if user_id in _cfg.ADMIN_IDS or role in ('superadmin', 'admin'):
+        cursor.execute(base_select + "WHERE u.role NOT IN ('superadmin','admin')" + order)
+    elif role == 'nachalnik':
+        cursor.execute(base_select + "WHERE u.shop_name = ? AND u.role NOT IN ('superadmin','admin','nachalnik')" + order, (shop,))
+    elif role == 'master':
+        cursor.execute(base_select + "WHERE u.shop_name = ? AND u.master_name = ? AND u.role NOT IN ('superadmin','admin','nachalnik','master')" + order, (shop, name))
+    elif role == 'brigadir':
+        cursor.execute(base_select + "WHERE u.shop_name = ? AND u.master_name = ? AND u.role = 'worker'" + order, (shop, name))
+    else:
+        conn.close()
+        return []
+
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def get_management_chain(user_id: int):
+    """
+    Returns the management hierarchy visible to a worker:
+    nachalnik → master → brigadir of the same shop.
+    Admin/superadmin are NEVER shown.
+    """
+    user = get_user(user_id)
+    if not user:
+        return []
+    shop = user.get('shop_name', '')
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+    SELECT telegram_id, full_name, username, role, shop_name
+    FROM users
+    WHERE shop_name = ? AND role IN ('nachalnik','master','brigadir')
+    ORDER BY
+        CASE role
+            WHEN 'nachalnik' THEN 1
+            WHEN 'master'    THEN 2
+            WHEN 'brigadir'  THEN 3
+        END
+    """, (shop,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def get_attack_full_info(telegram_id: int):
+    """Returns full profile of a user who attempted an attack, for admin notification."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+    SELECT u.telegram_id, u.full_name, u.username, u.phone,
+           u.shop_name, u.master_name, u.role, u.invite_code,
+           u.registered_at,
+           COUNT(a.id) as total_attacks,
+           MAX(a.attack_time) as last_attack,
+           GROUP_CONCAT(a.attempt_details, ' | ') as all_attempts
+    FROM users u
+    LEFT JOIN attacks a ON a.telegram_id = u.telegram_id
+    WHERE u.telegram_id = ?
+    GROUP BY u.telegram_id
+    """, (telegram_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
 def get_all_admins():
+    """Returns all admin/superadmin accounts."""
     import config
     conn = get_db()
     cursor = conn.cursor()
@@ -185,12 +332,36 @@ def get_all_admins():
     rows = cursor.fetchall()
     conn.close()
     admins = [dict(r) for r in rows]
-    # Ensure superadmins have superadmin role in return
     for a in admins:
         if a["telegram_id"] in config.ADMIN_IDS:
             a["role"] = "superadmin"
             a["permissions"] = "all"
     return admins
+
+def get_all_management():
+    """Returns all nachalnik/master/brigadir for admin panel overview."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+    SELECT u.telegram_id, u.full_name, u.username, u.shop_name, u.master_name, u.role,
+           COALESCE(MAX(tr.percentage), 0) as best_score,
+           COUNT(tr.id) as tests_completed
+    FROM users u
+    LEFT JOIN test_results tr ON u.telegram_id = tr.user_telegram_id
+    WHERE u.role IN ('nachalnik','master','brigadir')
+    GROUP BY u.telegram_id
+    ORDER BY
+        CASE u.role
+            WHEN 'nachalnik' THEN 1
+            WHEN 'master'    THEN 2
+            WHEN 'brigadir'  THEN 3
+        END,
+        u.shop_name
+    """
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 def set_user_role_and_permissions(telegram_id: int, role: str, permissions):
     conn = get_db()
@@ -258,19 +429,29 @@ def get_user_stats(telegram_id: int):
     conn.close()
     return dict(row) if row else {"tests_count": 0, "best_score": 0, "avg_score": 0}
 
-def get_leaderboard(limit: int = 20):
+def get_leaderboard(limit: int = 500, shop_name: str = None):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("""
-    SELECT u.telegram_id, u.full_name, u.shop_name, u.master_name, u.role,
-           MAX(tr.percentage) as best_score, COUNT(tr.id) as total_attempts,
+    query = """
+    SELECT u.telegram_id, u.full_name, u.username, u.phone, u.shop_name, u.master_name, u.role,
+           COALESCE(MAX(tr.percentage), 0) as best_score, 
+           COUNT(tr.id) as total_attempts,
            MAX(tr.completed_at) as last_test
     FROM users u
-    JOIN test_results tr ON u.telegram_id = tr.user_telegram_id
+    LEFT JOIN test_results tr ON u.telegram_id = tr.user_telegram_id
+    """
+    params = []
+    if shop_name and shop_name != "all":
+        query += " WHERE u.shop_name = ?"
+        params.append(shop_name)
+
+    query += """
     GROUP BY u.telegram_id
-    ORDER BY best_score DESC, total_attempts DESC
+    ORDER BY best_score DESC, total_attempts DESC, u.registered_at ASC
     LIMIT ?
-    """, (limit,))
+    """
+    params.append(limit)
+    cursor.execute(query, tuple(params))
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -297,19 +478,25 @@ def get_shop_statistics():
     cursor = conn.cursor()
     cursor.execute("""
     SELECT 
-        u.shop_name, 
-        u.master_name,
-        COUNT(tr.id) as total_tests,
-        AVG(tr.percentage) as avg_score,
-        SUM(tr.total_questions - tr.score) as total_mistakes
+        u.shop_name,
+        COUNT(u.telegram_id) as total_workers,
+        COUNT(user_best.best_score) as tested_workers,
+        COALESCE(ROUND(AVG(user_best.best_score), 1), 0) as avg_score,
+        SUM(CASE WHEN user_best.best_score >= 80 THEN 1 ELSE 0 END) as expert_count
     FROM users u
-    JOIN test_results tr ON u.telegram_id = tr.user_telegram_id
-    GROUP BY u.shop_name, u.master_name
-    ORDER BY avg_score DESC
+    LEFT JOIN (
+        SELECT user_telegram_id, MAX(percentage) as best_score
+        FROM test_results
+        GROUP BY user_telegram_id
+    ) user_best ON u.telegram_id = user_best.user_telegram_id
+    WHERE u.role NOT IN ('superadmin', 'admin') OR u.role IS NULL
+    GROUP BY u.shop_name
+    ORDER BY avg_score DESC, total_workers DESC
     """)
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
 
 def log_attack(telegram_id: int, attempt_details: str):
     conn = get_db()

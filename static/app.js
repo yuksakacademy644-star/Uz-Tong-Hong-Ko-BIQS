@@ -47,6 +47,9 @@ const i18n = {
         promo_desc: "Вы отлично знаете стандарты качества BIQS СП Уз Тонг Хонг Ко!",
         leaderboard_title: "Рейтинг Специалистов",
         leaderboard_subtitle: "Лучшие сотрудники завода по результатам тестов BIQS",
+        sector_stats_title: "Статистика по участкам и линиям",
+        filter_all_sectors: "🌐 Все участки и линии (Все цеха)",
+        no_tests_yet: "Ещё не проходил",
         my_stats_title: "Моя статистика",
         best_result: "Лучший результат",
         tests_passed: "Пройдено тестов",
@@ -83,7 +86,11 @@ const i18n = {
         promo_desc: "Siz Uz Tong Hong Ko BIQS sifat standartlarini mukammal bilasiz!",
         leaderboard_title: "Mutaxassislar Reytingi",
         leaderboard_subtitle: "BIQS test natijalari bo'yicha zavodning eng yaxshi xodimlari",
+        sector_stats_title: "Bo'limlar va liniyalar statistikasi",
+        filter_all_sectors: "🌐 Barcha bo'lim va liniyalar",
+        no_tests_yet: "Hali topshirmagan",
         my_stats_title: "Mening statistikaim",
+
         best_result: "Eng yaxshi natija",
         tests_passed: "Topshirilgan testlar",
         avg_result: "O'rtacha ball",
@@ -126,10 +133,14 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("nextQuestionBtn").addEventListener("click", nextQuestion);
     document.getElementById("restartQuizBtn").addEventListener("click", resetQuiz);
     document.getElementById("goLeaderboardBtn").addEventListener("click", () => switchTab("leaderboardTab"));
+    if (document.getElementById("sectorFilterSelect")) {
+        document.getElementById("sectorFilterSelect").addEventListener("change", (e) => fetchLeaderboard(e.target.value));
+    }
     document.getElementById("createCodeForm").addEventListener("submit", handleCreateCode);
     if (document.getElementById("addAdminForm")) {
         document.getElementById("addAdminForm").addEventListener("submit", handleAddAdmin);
     }
+
 });
 
 // Tab Navigation
@@ -479,10 +490,13 @@ function resetQuiz() {
     startQuiz();
 }
 
-// Fetch Leaderboard
-async function fetchLeaderboard() {
+// Fetch Leaderboard & Sector Stats
+async function fetchLeaderboard(selectedShop = 'all') {
     try {
-        const res = await fetch(`/api/leaderboard?user_telegram_id=${userTelegramId}`);
+        const url = selectedShop && selectedShop !== 'all' 
+            ? `/api/leaderboard?user_telegram_id=${userTelegramId}&shop_name=${encodeURIComponent(selectedShop)}`
+            : `/api/leaderboard?user_telegram_id=${userTelegramId}`;
+        const res = await fetch(url);
         const data = await res.json();
         
         // Render stats summary
@@ -492,10 +506,68 @@ async function fetchLeaderboard() {
             document.getElementById("myAvgScore").textContent = `${Math.round(data.my_stats.avg_score || 0)}%`;
         }
 
-        renderLeaderboard(data.leaderboard);
+        if (data.sector_stats) {
+            renderSectorStats(data.sector_stats);
+            populateSectorFilterSelect(data.sector_stats, selectedShop);
+        }
+
+        renderLeaderboard(data.leaderboard || []);
     } catch (e) {
         console.error("Error fetching leaderboard", e);
     }
+}
+
+function renderSectorStats(sectors = []) {
+    const grid = document.getElementById("sectorStatsGrid");
+    if (!grid) return;
+    grid.innerHTML = "";
+
+    if (sectors.length === 0) {
+        grid.innerHTML = `<div style="font-size:11px; color:var(--text-muted);">Участки пока не зарегистрированы</div>`;
+        return;
+    }
+
+    sectors.forEach(s => {
+        const avg = s.avg_score || 0;
+        let colorStyle = avg >= 80 ? 'color:#10b981;' : (avg >= 60 ? 'color:#f59e0b;' : 'color:#ef4444;');
+        const card = document.createElement("div");
+        card.style.cssText = "background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:8px 10px; cursor:pointer; transition:all 0.2s ease;";
+        card.onmouseover = () => { card.style.borderColor = 'var(--accent-blue)'; card.style.background = 'rgba(0,136,204,0.08)'; };
+        card.onmouseout = () => { card.style.borderColor = 'var(--border-color)'; card.style.background = 'rgba(255,255,255,0.03)'; };
+        card.onclick = () => {
+            const select = document.getElementById("sectorFilterSelect");
+            if (select) {
+                select.value = s.shop_name;
+                fetchLeaderboard(s.shop_name);
+            }
+        };
+
+        card.innerHTML = `
+            <div style="font-size:11px; font-weight:700; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${s.shop_name}">
+                <i class="fa-solid fa-industry" style="color:var(--accent-blue);"></i> ${s.shop_name}
+            </div>
+            <div style="font-family:var(--font-heading); font-size:16px; font-weight:800; ${colorStyle} margin:2px 0;">
+                ${avg}%
+            </div>
+            <div style="font-size:9px; color:var(--text-muted);">
+                👥 ${s.total_workers} xod | 📝 ${s.tested_workers} test
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+function populateSectorFilterSelect(sectors = [], currentSelected = 'all') {
+    const select = document.getElementById("sectorFilterSelect");
+    if (!select) return;
+    select.innerHTML = `<option value="all">${i18n[currentLang]?.filter_all_sectors || '🌐 Все участки и линии (Все цеха)'}</option>`;
+    sectors.forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s.shop_name;
+        opt.textContent = `🏭 ${s.shop_name} (${s.avg_score}% | ${s.total_workers} xod)`;
+        select.appendChild(opt);
+    });
+    select.value = currentSelected;
 }
 
 function renderLeaderboard(leaders = []) {
@@ -512,7 +584,8 @@ function renderLeaderboard(leaders = []) {
         const div = document.createElement("div");
         div.className = `leader-item ${rank <= 3 ? 'top-' + rank : ''}`;
 
-        const isOfficeEligible = item.best_score >= 80;
+        const hasTakenTest = (item.total_attempts || 0) > 0;
+        const isOfficeEligible = hasTakenTest && item.best_score >= 80;
 
         const role = item.role || 'worker';
         let roleBadge = '';
@@ -528,6 +601,11 @@ function renderLeaderboard(leaders = []) {
             roleBadge = `<span class="leader-role-badge admin"><i class="fa-solid fa-user-shield"></i> Admin</span>`;
         }
 
+        const scoreText = hasTakenTest ? `${Math.round(item.best_score)}%` : '0%';
+        const attemptsText = hasTakenTest 
+            ? `${item.total_attempts} ${currentLang === 'ru' ? 'попыток' : 'urinish'}`
+            : `<span style="color:var(--text-muted);">${i18n[currentLang]?.no_tests_yet || 'Ещё не проходил'}</span>`;
+
         div.innerHTML = `
             <div class="leader-rank">${rank}</div>
             <div class="leader-info">
@@ -536,14 +614,15 @@ function renderLeaderboard(leaders = []) {
                 ${isOfficeEligible ? `<div class="office-eligible-badge"><i class="fa-solid fa-star"></i> ${i18n[currentLang].rank_office_candidate}</div>` : ''}
             </div>
             <div class="leader-score">
-                <div class="leader-score-value">${Math.round(item.best_score)}%</div>
-                <div style="font-size:10px; color:var(--text-muted);">${item.total_attempts} попыток</div>
+                <div class="leader-score-value" style="${hasTakenTest ? '' : 'color:var(--text-muted);'}">${scoreText}</div>
+                <div style="font-size:10px; color:var(--text-muted);">${attemptsText}</div>
             </div>
         `;
 
         container.appendChild(div);
     });
 }
+
 
 // Fetch My Team Data (Master / Chief Shop Monitoring)
 async function fetchMyTeamData() {

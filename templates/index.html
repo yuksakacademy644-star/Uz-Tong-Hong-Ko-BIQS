@@ -263,6 +263,16 @@
                     <p class="section-desc" data-i18n="leaderboard_subtitle">Лучшие сотрудники завода по результатам тестов BIQS</p>
                 </div>
 
+                <!-- Sector Breakdown Summary Card -->
+                <div class="personal-summary-card" id="sectorStatsCard" style="margin-bottom:14px; border-color: rgba(255, 215, 0, 0.3);">
+                    <h3 style="color: var(--accent-gold); display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <span><i class="fa-solid fa-industry"></i> <span data-i18n="sector_stats_title">Статистика по участкам и линиям</span></span>
+                    </h3>
+                    <div id="sectorStatsGrid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap:10px;">
+                        <!-- Sector cards loaded dynamically -->
+                    </div>
+                </div>
+
                 <!-- Personal Performance Summary -->
                 <div class="personal-summary-card">
                     <h3 data-i18n="my_stats_title"><i class="fa-solid fa-chart-line"></i> Моя статистика</h3>
@@ -282,6 +292,16 @@
                     </div>
                 </div>
 
+                <!-- Filter Bar by Sector -->
+                <div class="search-box" style="margin-bottom:14px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <i class="fa-solid fa-filter" style="color:var(--accent-blue);"></i>
+                        <select id="sectorFilterSelect" style="flex:1; padding:10px 12px; border-radius:var(--radius-md); background:var(--bg-card); color:var(--text-primary); border:1px solid var(--border-color); font-size:13px; outline:none;">
+                            <option value="all" data-i18n="filter_all_sectors">🌐 Все участки и линии (Все цеха)</option>
+                        </select>
+                    </div>
+                </div>
+
                 <!-- Leaderboard Table List -->
                 <div id="leaderboardList" class="leaderboard-list">
                     <div class="loading-spinner">
@@ -289,6 +309,7 @@
                     </div>
                 </div>
             </section>
+
 
             <!-- Tab 3.5: My Team (Master / Chief Monitoring) -->
             <section id="myTeamTab" class="tab-pane">

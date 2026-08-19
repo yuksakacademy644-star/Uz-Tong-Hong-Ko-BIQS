@@ -56,27 +56,30 @@ def set_webapp_url(url: str):
             logger.warning(f"[BOT WARN] Failed to schedule menu button update: {e}")
 
 
+MANAGEMENT_ROLES = ('nachalnik', 'master', 'brigadir')
+
 def get_main_keyboard(lang: str = 'ru', user_id: int = None):
     url = WEBAPP_URL
     is_admin = database.is_admin_or_superadmin(user_id) if user_id else False
     user = database.get_user(user_id) if user_id else None
     role = user.get("role", "worker") if user else "worker"
+    is_mgmt = role in MANAGEMENT_ROLES or is_admin
 
     if lang == 'uz':
         kb = [[KeyboardButton("🚀 BIQS Mini App-ni ochish", web_app=WebAppInfo(url=url))]]
-        middle_row = []
-        if role == 'master' or is_admin:
-            middle_row.append(KeyboardButton("👥 Mening sexim (Xodimlarim)"))
-        if middle_row:
-            kb.append(middle_row)
+        kb.append([KeyboardButton("📊 Mening statistikam")])
+        if is_mgmt:
+            kb.append([KeyboardButton("👥 Mening jamoam (xodimlar)")])
+        if role == 'worker':
+            kb.append([KeyboardButton("🏢 Mening rahbarlarim")])
         kb.append([KeyboardButton("👨‍💼 Yaratuvchi"), KeyboardButton("🆘 Texnik yordam")])
     else:
         kb = [[KeyboardButton("🚀 Открыть BIQS Mini App", web_app=WebAppInfo(url=url))]]
-        middle_row = []
-        if role == 'master' or is_admin:
-            middle_row.append(KeyboardButton("👥 Мой цех (Сотрудники)"))
-        if middle_row:
-            kb.append(middle_row)
+        kb.append([KeyboardButton("📊 Моя статистика")])
+        if is_mgmt:
+            kb.append([KeyboardButton("👥 Моя команда (сотрудники)")])
+        if role == 'worker':
+            kb.append([KeyboardButton("🏢 Моё руководство")])
         kb.append([KeyboardButton("👨‍💼 Создатель"), KeyboardButton("🆘 Техподдержка")])
     return ReplyKeyboardMarkup(kb, resize_keyboard=True)
 
@@ -247,113 +250,230 @@ async def set_language_callback(update: Update, context: ContextTypes.DEFAULT_TY
         reply_markup=get_main_keyboard(lang, user_id)
     )
 
-# Master / Chief Team Monitoring Handler
+ROLE_LABELS = {
+    'nachalnik': ('🏭 Начальник цеха', '🏭 Tsex boshlig\'i'),
+    'master':    ('👨‍🔧 Мастер',         '👨‍🔧 Master'),
+    'brigadir':  ('👷 Бригадир',         '👷 Brigadir'),
+    'worker':    ('👤 Рабочий',          '👤 Ishchi'),
+}
+
+# Team Monitoring Handler (nachalnik / master / brigadir / admin)
 async def my_team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     db_user = database.get_user(user_id)
     if not db_user:
         await update.message.reply_text("Iltimos, avval /start buyrug'i orqali ro'yxatdan o'ting.")
         return
-    
+
     lang = db_user.get("language", "uz")
-    shop_name = db_user.get("shop_name", "СП Уз Тонг Хонг Ко")
     role = db_user.get("role", "worker")
+    shop_name = db_user.get("shop_name", "СП Уз Тонг Хонг Ко")
     is_admin = database.is_admin_or_superadmin(user_id)
-    
-    if role != 'master' and not is_admin:
-        await update.message.reply_text("⚠️ Bu bo'lim faqat sex boshliqlari (masterlar) va adminlar uchun mo'ljallangan.")
+
+    if role not in MANAGEMENT_ROLES and not is_admin:
+        txt = ("⚠️ Bu bo'lim faqat rahbarlar uchun mo'ljallangan." if lang == 'uz'
+               else "⚠️ Этот раздел доступен только для руководства.")
+        await update.message.reply_text(txt)
         return
 
-    workers = database.get_shop_workers(shop_name)
+    workers = database.get_subordinates(user_id)
     
+    import json as _json
+
+    def _format_member(idx, w, lang):
+        r = w.get('role', 'worker')
+        lbl = ROLE_LABELS.get(r, ('👤', '👤'))[0 if lang == 'ru' else 1]
+        badge = " 🌟" if w['best_score'] >= 80 else ""
+        line = f"{idx}. <b>{w['full_name']}</b> — <i>{lbl}</i>{badge}\n"
+        line += f"   🎯 {'Лучший результат' if lang=='ru' else 'Eng yaxshi natija'}: <b>{round(w['best_score'])}%</b> | "
+        line += f"📝 {'Попыток' if lang=='ru' else 'Testlar'}: {w['tests_completed']}\n"
+        if w.get('latest_mistakes'):
+            try:
+                ml = _json.loads(w['latest_mistakes'])
+                ms = ", ".join(ml) if isinstance(ml, list) else str(w['latest_mistakes'])
+            except:
+                ms = str(w['latest_mistakes'])
+            if ms:
+                line += f"   ⚠️ {'Посл. ошибки' if lang=='ru' else 'Oxirgi xatolar'}: <i>{ms}</i>\n"
+        return line + "\n"
+
+    title_ru = f"👥 <b>МОЯ КОМАНДА — {shop_name}</b>"
+    title_uz = f"👥 <b>MENING JAMOAM — {shop_name}</b>"
+
     if lang == 'uz':
         if not workers:
-            msg = f"🏭 <b>{shop_name}</b> sexi bo'yicha hali birorta ham xodim ro'yxatdan o'tmagan."
+            msg = f"🏭 <b>{shop_name}</b> bo'yicha hali hech kim ro'yxatdan o'tmagan."
         else:
-            msg = f"👥 <b>MENING SEXIM (XODIMLARIM) — {shop_name}</b>\n\n"
-            msg += f"📊 <b>Jami xodimlar soni:</b> {len(workers)} ta\n\n"
+            msg = title_uz + f"\n\n📊 <b>Jami:</b> {len(workers)} ta\n\n"
             for idx, w in enumerate(workers, 1):
-                badge = " 🌟 BIQS Mutaxassisi" if w['best_score'] >= 80 else ""
-                msg += f"{idx}. <b>{w['full_name']}</b>{badge}\n"
-                msg += f"   🎯 Eng yaxshi natija: <b>{round(w['best_score'])}%</b> | 📝 Testlar: {w['tests_completed']} marta\n"
-                if w.get('latest_mistakes'):
-                    import json
-                    try:
-                        m_list = json.loads(w['latest_mistakes'])
-                        m_str = ", ".join(m_list) if isinstance(m_list, list) else str(w['latest_mistakes'])
-                    except:
-                        m_str = str(w['latest_mistakes'])
-                    if m_str:
-                        msg += f"   ⚠️ Oxirgi xatolari: <i>{m_str}</i>\n"
-                msg += "\n"
+                msg += _format_member(idx, w, 'uz')
     else:
         if not workers:
-            msg = f"🏭 По цеху/сектору <b>{shop_name}</b> пока нет зарегистрированных работников."
+            msg = f"🏭 По <b>{shop_name}</b> пока нет зарегистрированных участников."
         else:
-            msg = f"👥 <b>МОЙ ЦЕХ (СОТРУДНИКИ) — {shop_name}</b>\n\n"
-            msg += f"📊 <b>Всего сотрудников:</b> {len(workers)}\n\n"
+            msg = title_ru + f"\n\n📊 <b>Всего:</b> {len(workers)}\n\n"
             for idx, w in enumerate(workers, 1):
-                badge = " 🌟 Эксперт BIQS" if w['best_score'] >= 80 else ""
-                msg += f"{idx}. <b>{w['full_name']}</b>{badge}\n"
-                msg += f"   🎯 Лучший результат: <b>{round(w['best_score'])}%</b> | 📝 Попыток: {w['tests_completed']}\n"
-                if w.get('latest_mistakes'):
-                    import json
-                    try:
-                        m_list = json.loads(w['latest_mistakes'])
-                        m_str = ", ".join(m_list) if isinstance(m_list, list) else str(w['latest_mistakes'])
-                    except:
-                        m_str = str(w['latest_mistakes'])
-                    if m_str:
-                        msg += f"   ⚠️ Последние ошибки: <i>{m_str}</i>\n"
-                msg += "\n"
+                msg += _format_member(idx, w, 'ru')
 
-    await update.message.reply_html(msg, reply_markup=get_main_keyboard(lang, user_id))
+    # Send in chunks if too long
+    if len(msg) <= 4000:
+        await update.message.reply_html(msg, reply_markup=get_main_keyboard(lang, user_id))
+    else:
+        chunks = [msg[i:i+3800] for i in range(0, len(msg), 3800)]
+        for i, chunk in enumerate(chunks):
+            await update.message.reply_html(chunk, reply_markup=get_main_keyboard(lang, user_id) if i == len(chunks)-1 else None)
 
-# Statistics Button Handler
-async def show_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def format_sector_stats_text(lang: str = 'ru') -> str:
+    stats = database.get_shop_statistics()
+    if not stats:
+        return ("🏢 По участкам пока нет данных." if lang == 'ru' else "🏢 Bo'limlar bo'yicha hali ma'lumot yo'q.")
+    
+    if lang == 'uz':
+        txt = "🏭 <b>BO'LIMLAR VA LINIYALAR STATISTIKASI:</b>\n"
+        txt += "━━━━━━━━━━━━━━━━━━━━\n"
+        for idx, s in enumerate(stats, 1):
+            avg = s.get("avg_score", 0)
+            badge = "🟢" if avg >= 80 else ("🟡" if avg >= 60 else "🔴")
+            txt += f"{idx}. 🏢 <b>{s['shop_name']}</b> — <b>{avg}%</b> {badge}\n"
+            txt += f"   👥 Xodimlar: <b>{s['total_workers']}</b> ta | 📝 Topshirgan: {s['tested_workers']} ta\n"
+            txt += f"   ⭐ BIQS Mutaxassislari: <b>{s['expert_count']}</b> ta\n\n"
+    else:
+        txt = "🏭 <b>СВОДКА ПО УЧАСТКАМ И ЛИНИЯМ:</b>\n"
+        txt += "━━━━━━━━━━━━━━━━━━━━\n"
+        for idx, s in enumerate(stats, 1):
+            avg = s.get("avg_score", 0)
+            badge = "🟢" if avg >= 80 else ("🟡" if avg >= 60 else "🔴")
+            txt += f"{idx}. 🏢 <b>{s['shop_name']}</b> — <b>{avg}%</b> {badge}\n"
+            txt += f"   👥 Сотрудников: <b>{s['total_workers']}</b> | 📝 Прошли тест: {s['tested_workers']}\n"
+            txt += f"   ⭐ Экспертов BIQS: <b>{s['expert_count']}</b>\n\n"
+    return txt
+
+async def sectors_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     db_user = database.get_user(user_id)
     lang = db_user.get("language", "ru") if db_user else "ru"
+    txt = format_sector_stats_text(lang)
+    await update.message.reply_html(txt, reply_markup=get_webapp_inline_keyboard(lang))
+
+# Statistics Handler — available to ALL registered users
+async def show_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    db_user = database.get_user(user_id)
+    if not db_user:
+        await update.message.reply_text("Avval /start orqali ro'yxatdan o'ting. / Сначала пройдите регистрацию через /start.")
+        return
+    lang = db_user.get("language", "ru")
+    role = db_user.get("role", "worker")
+    shop = db_user.get("shop_name", "—")
+    is_admin = database.is_admin_or_superadmin(user_id)
 
     stats = database.get_user_stats(user_id)
     best_score = round(stats.get("best_score") or 0)
     tests_count = stats.get("tests_count", 0)
-
+    avg_score = round(stats.get("avg_score") or 0)
     is_expert = best_score >= 80
+
+    role_lbl_ru, role_lbl_uz = ROLE_LABELS.get(role, ("👤 Сотрудник", "👤 Xodim"))
 
     if lang == 'uz':
         status_str = "🌟 <b>STATUS: BIQS Mutaxassisi!</b>" if is_expert else "💼 <b>STATUS: Faol xodim</b>"
         text = (
-            f"📊 <b>Sizning Natijalaringiz (Uz Tong Hong Ko):</b>\n\n"
-            f"👤 <b>F.I.Sh:</b> {update.effective_user.full_name}\n"
+            f"📊 <b>SIZNING STATISTIKANGIZ</b>\n"
+            f"🏭 СП Уз Тонг Хонг Ко\n\n"
+            f"👤 <b>F.I.Sh:</b> {db_user.get('full_name', update.effective_user.full_name)}\n"
+            f"🏢 <b>Bo'lim:</b> {shop}\n"
+            f"🎖 <b>Lavozim:</b> {role_lbl_uz}\n\n"
             f"🎯 <b>Eng yaxshi natija:</b> {best_score}%\n"
-            f"📝 <b>Topshirilgan testlar:</b> {tests_count} ta\n"
+            f"📈 <b>O'rtacha natija:</b> {avg_score}%\n"
+            f"📝 <b>Topshirilgan testlar:</b> {tests_count} ta\n\n"
             f"{status_str}\n\n"
-            f"💡 <i>80% va undan yuqori ball to'plagan xodimlar Uz Tong Hong Ko zavodining faxriy BIQS Mutaxassisi unvoniga ega bo'ladilar!</i>"
+            f"💡 <i>80%+ ball — BIQS Mutaxassisi unvoni!</i>"
         )
     else:
         status_str = "🌟 <b>СТАТУС: Эксперт BIQS!</b>" if is_expert else "💼 <b>СТАТУС: Активный сотрудник</b>"
         text = (
-            f"📊 <b>Ваша статистика (Уз Тонг Хонг Ко):</b>\n\n"
-            f"👤 <b>ФИО:</b> {update.effective_user.full_name}\n"
+            f"📊 <b>ВАША СТАТИСТИКА</b>\n"
+            f"🏭 СП Уз Тонг Хонг Ко\n\n"
+            f"👤 <b>ФИО:</b> {db_user.get('full_name', update.effective_user.full_name)}\n"
+            f"🏢 <b>Участок:</b> {shop}\n"
+            f"🎖 <b>Должность:</b> {role_lbl_ru}\n\n"
             f"🎯 <b>Лучший результат:</b> {best_score}%\n"
-            f"📝 <b>Пройдено тестов:</b> {tests_count}\n"
+            f"📈 <b>Средний результат:</b> {avg_score}%\n"
+            f"📝 <b>Пройдено тестов:</b> {tests_count}\n\n"
             f"{status_str}\n\n"
-            f"💡 <i>Сотрудники, набравшие 80%+ баллов, получают почетный статус Эксперта BIQS СП Уз Тонг Хонг Ко!</i>"
+            f"💡 <i>80%+ баллов — статус Эксперта BIQS!</i>"
         )
 
+    # For management & admins, append full sector breakdown overview
+    if role in MANAGEMENT_ROLES or is_admin:
+        text += "\n\n" + format_sector_stats_text(lang)
+
     await update.message.reply_html(text, reply_markup=get_webapp_inline_keyboard(lang))
+
+
+# My Management Handler — workers see their bosses (NO admin/superadmin shown)
+async def my_management_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    db_user = database.get_user(user_id)
+    if not db_user:
+        await update.message.reply_text("Avval /start orqali ro'yxatdan o'ting.")
+        return
+    lang = db_user.get("language", "ru")
+    management = database.get_management_chain(user_id)
+    if not management:
+        txt = ("🏢 Sizning sexingizda rahbarlar ro'yxatdan o'tmagan." if lang == 'uz'
+               else "🏢 В вашем цехе руководство ещё не зарегистрировано.")
+        await update.message.reply_html(txt)
+        return
+    if lang == 'uz':
+        msg = "🏢 <b>MENING RAHBARLARIM:</b>\n\n"
+        for m in management:
+            lbl = ROLE_LABELS.get(m['role'], ('👤','👤'))[1]
+            msg += f"• {lbl}: <b>{m['full_name']}</b>\n"
+    else:
+        msg = "🏢 <b>МОЁ РУКОВОДСТВО:</b>\n\n"
+        for m in management:
+            lbl = ROLE_LABELS.get(m['role'], ('👤','👤'))[0]
+            msg += f"• {lbl}: <b>{m['full_name']}</b>\n"
+    await update.message.reply_html(msg, reply_markup=get_main_keyboard(lang, user_id))
 
 # Change Language Handler
 async def change_lang_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = "🌐 <b>Выберите язык интерфейса / Tilni tanlang:</b>"
     await update.message.reply_html(text, reply_markup=get_language_inline_keyboard())
 
-async def log_if_not_admin(user_id: int, command: str) -> bool:
+async def log_if_not_admin(user_id: int, command: str, bot=None) -> bool:
+    """Log attack and immediately send full user profile to all superadmins."""
     if not database.is_admin_or_superadmin(user_id):
         db_user = database.get_user(user_id)
         if db_user:
             database.log_attack(user_id, f"Попытка доступа к {command}")
+            # Send instant alert with full profile
+            if bot:
+                info = database.get_attack_full_info(user_id)
+                if info:
+                    alert = (
+                        f"🚨 <b>ПОПЫТКА ВЗЛОМА / HUJUM URINISHI!</b>\n"
+                        f"━━━━━━━━━━━━━━━━━━━━\n"
+                        f"👤 <b>ФИО:</b> {info.get('full_name','—')}\n"
+                        f"📱 <b>Username:</b> @{info.get('username') or '—'}\n"
+                        f"📞 <b>Телефон:</b> {info.get('phone') or '—'}\n"
+                        f"🆔 <b>TG ID:</b> <code>{info.get('telegram_id')}</code>\n"
+                        f"🏭 <b>Участок/Цех:</b> {info.get('shop_name','—')}\n"
+                        f"👨‍💼 <b>Мастер/Нач.:</b> {info.get('master_name') or '—'}\n"
+                        f"🎖 <b>Роль:</b> {info.get('role','—')}\n"
+                        f"🔑 <b>Код входа:</b> <code>{info.get('invite_code','—')}</code>\n"
+                        f"📅 <b>Регистрация:</b> {str(info.get('registered_at','—'))[:10]}\n\n"
+                        f"⚠️ <b>Команда:</b> <code>{command}</code>\n"
+                        f"🔢 <b>Всего попыток:</b> {info.get('total_attacks',1)}\n"
+                        f"🕒 <b>Последняя:</b> {str(info.get('last_attack','—'))[:19]}"
+                    )
+                    import config as _cfg
+                    for admin_id in _cfg.ADMIN_IDS:
+                        try:
+                            await bot.send_message(chat_id=admin_id, text=alert, parse_mode="HTML")
+                        except:
+                            pass
         return True
     return False
 
@@ -383,23 +503,30 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     workers = database.get_all_workers_admin()
     experts = [w for w in workers if w["best_score"] >= 80]
     admins = database.get_all_admins()
+    management = database.get_all_management()
+    nachalniki = [m for m in management if m['role'] == 'nachalnik']
+    masters = [m for m in management if m['role'] == 'master']
+    brigadiry = [m for m in management if m['role'] == 'brigadir']
 
     text = (
-        f"⚙️ <b>ПАНЕЛЬ АДМИНИСТРАТОРА UZ TONG HONG KO</b>\n\n"
+        f"⚙️ <b>ПАНЕЛЬ АДМИНИСТРАТОРА — УЗ ТОНГ ХОНГ КО</b>\n\n"
         f"👥 <b>Всего сотрудников:</b> {len(workers)}\n"
         f"🌟 <b>Экспертов BIQS (80%+):</b> {len(experts)}\n"
-        f"🔑 <b>Активных кодов приглашения:</b> {len(codes)}\n"
-        f"👔 <b>Назначенных админов:</b> {len(admins)}\n\n"
-        f"📌 <b>Основные команды:</b>\n"
-        f"• <code>/newcode KOD [ROLE] SHOP</code> — Создать код (role: worker/master)\n"
-        f"• <code>/addadmin ID_OR_USERNAME [PERMS]</code> — Назначить админа\n"
-        f"• <code>/workers</code> — Список всех работников\n"
-        f"• <code>/myteam</code> — Просмотр работников своего цеха\n"
+        f"🔑 <b>Кодов приглашения:</b> {len(codes)}\n\n"
+        f"🏭 <b>Нач. цеха:</b> {len(nachalniki)} | "
+        f"👨‍🔧 <b>Мастеров:</b> {len(masters)} | "
+        f"👷 <b>Бригадиров:</b> {len(brigadiry)}\n\n"
+        f"📌 <b>Команды создания кодов:</b>\n"
+        f"• <code>/newcode KOD nachalnik 1-Tsex</code> — Нач. цеха\n"
+        f"• <code>/newcode KOD master 1-Tsex</code> — Мастер\n"
+        f"• <code>/newcode KOD brigadir 1-Tsex</code> — Бригадир\n"
+        f"• <code>/newcode KOD worker 1-Tsex</code> — Рабочий\n"
+        f"• <code>/addadmin ID [PERMS]</code> — Назначить IT-админа\n"
     )
     keyboard = [
         [
             InlineKeyboardButton("🔑 Создать код", callback_data="admin_create_code_prompt"),
-            InlineKeyboardButton("👔 Админы", callback_data="admin_manage_admins")
+            InlineKeyboardButton("👔 Управление", callback_data="admin_manage_admins")
         ],
         [
             InlineKeyboardButton("👥 Сотрудники", callback_data="admin_view_workers"),
@@ -493,11 +620,18 @@ async def newcode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
     if len(args) < 1:
         await update.message.reply_html(
-            "⚠️ <b>Формат команды / Kod yaratish formati:</b>\n"
-            "<code>/newcode &lt;KOD&gt; [worker|master] [SEX_NOMI]</code>\n\n"
-            "<i>Misollar (Примеры):</i>\n"
-            "• <b>Работник:</b> <code>/newcode WORKER1 worker 1-Sekh (Payvandlash)</code>\n"
-            "• <b>Начальник:</b> <code>/newcode CHIEF1 master 1-Sekh (Payvandlash)</code>"
+            "⚠️ <b>Kod yaratish / Создание кода:</b>\n"
+            "<code>/newcode &lt;KOD&gt; &lt;ROL&gt; &lt;TSEX_NOMI&gt;</code>\n\n"
+            "<i>Rollar / Роли:</i>\n"
+            "• <code>nachalnik</code> — 🏭 Начальник цеха\n"
+            "• <code>master</code>    — 👨‍🔧 Мастер\n"
+            "• <code>brigadir</code>  — 👷 Бригадир\n"
+            "• <code>worker</code>    — 👤 Рабочий\n\n"
+            "<i>Misollar:</i>\n"
+            "• <code>/newcode BOSS1 nachalnik 1-Tsex</code>\n"
+            "• <code>/newcode MST1 master 1-Tsex</code>\n"
+            "• <code>/newcode BRG1 brigadir 1-Tsex</code>\n"
+            "• <code>/newcode WRK1 worker 1-Tsex</code>"
         )
         return
 
@@ -505,12 +639,14 @@ async def newcode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target_role = "worker"
     shop_startIndex = 1
 
-    if len(args) > 1 and args[1].lower() in ["worker", "master", "xodim", "boshliq", "мастер", "работник"]:
-        val = args[1].lower()
-        if val in ["master", "boshliq", "мастер"]:
-            target_role = "master"
-        else:
-            target_role = "worker"
+    VALID_ROLES = {
+        "nachalnik": "nachalnik", "начальник": "nachalnik",
+        "master": "master", "мастер": "master", "boshliq": "master",
+        "brigadir": "brigadir", "бригадир": "brigadir",
+        "worker": "worker", "xodim": "worker", "работник": "worker",
+    }
+    if len(args) > 1 and args[1].lower() in VALID_ROLES:
+        target_role = VALID_ROLES[args[1].lower()]
         shop_startIndex = 2
 
     shop_name = " ".join(args[shop_startIndex:]) if len(args) > shop_startIndex else "СП Уз Тонг Хонг Ко"
@@ -518,13 +654,17 @@ async def newcode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     database.add_invite_code(code, shop_name, master_name, user_id, target_role=target_role)
 
-    role_badge = "👨‍💼 Boshliq / Master" if target_role == 'master' else "🎯 Xodim / Worker"
+    role_labels = {
+        'nachalnik': '🏭 Начальник цеха', 'master': '👨‍🔧 Мастер',
+        'brigadir': '👷 Бригадир', 'worker': '👤 Рабочий'
+    }
+    role_badge = role_labels.get(target_role, target_role)
 
     await update.message.reply_html(
-        f"✅ <b>Kod muvaffaqiyatli yaratildi! / Код создан!</b>\n\n"
+        f"✅ <b>Kod yaratildi! / Код создан!</b>\n\n"
         f"🔑 <b>Kod:</b> <code>{code}</code>\n"
-        f"👤 <b>Roli:</b> <code>{role_badge}</code>\n"
-        f"🏭 <b>Sex/Sektor:</b> <code>{shop_name}</code>"
+        f"🎖 <b>Rol/Роль:</b> {role_badge}\n"
+        f"🏭 <b>Tsex/Цех:</b> <code>{shop_name}</code>"
     )
 
 # Admin Command: /addadmin
@@ -576,6 +716,60 @@ async def addadmin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🔑 <b>Roli:</b> <code>ADMIN</code>\n"
         f"🛡 <b>Huquqlari:</b> <code>{', '.join(perm_list)}</code>"
     )
+
+# Admin Command: /deleteuser
+async def deleteuser_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if not database.is_admin_or_superadmin(user_id):
+        await log_if_not_admin(user_id, "/deleteuser")
+        return
+
+    args = context.args
+    if len(args) < 1:
+        await update.message.reply_html(
+            "⚠️ <b>Foydalanish / Использование:</b>\n"
+            "<code>/deleteuser &lt;TG_ID yoki @username&gt;</code>\n\n"
+            "<i>Misollar / Примеры:</i>\n"
+            "• <code>/deleteuser 5543183063</code>\n"
+            "• <code>/deleteuser @username</code>\n\n"
+            "⚠️ Bu buyruq foydalanuvchini va uning barcha test natijalarini o'chiradi!\n"
+            "<i>Эта команда удаляет пользователя и все его результаты тестов!</i>"
+        )
+        return
+
+    target = database.get_user_by_username_or_id(args[0])
+    if not target:
+        await update.message.reply_html(
+            f"❌ <b>Foydalanuvchi topilmadi!</b>\n"
+            f"<code>{args[0]}</code> — bunday foydalanuvchi ro'yxatdan o'tmagan.\n\n"
+            f"<i>Пользователь не найден в базе.</i>"
+        )
+        return
+
+    target_id = target["telegram_id"]
+    target_name = target.get("full_name", "—")
+    target_role = target.get("role", "worker")
+
+    # Prevent deleting superadmins from config
+    import config as _cfg
+    if target_id in _cfg.ADMIN_IDS:
+        await update.message.reply_html(
+            "🚫 <b>Asosiy superadminni o'chirib bo'lmaydi!</b>\n"
+            "<i>Нельзя удалить главного суперадминистратора!</i>"
+        )
+        return
+
+    deleted = database.delete_user(target_id)
+    if deleted:
+        await update.message.reply_html(
+            f"✅ <b>Foydalanuvchi o'chirildi!</b>\n\n"
+            f"👤 <b>Ism:</b> {target_name}\n"
+            f"🆔 <b>TG ID:</b> <code>{target_id}</code>\n"
+            f"🔑 <b>Roli:</b> <code>{target_role}</code>\n\n"
+            f"<i>Пользователь и все его данные удалены из базы.</i>"
+        )
+    else:
+        await update.message.reply_html("❌ O'chirishda xatolik yuz berdi. / Ошибка при удалении.")
 
 # Admin Command: /workers
 async def workers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -783,7 +977,10 @@ def create_bot_app(webhook_mode: bool = False):
     application.add_handler(CallbackQueryHandler(admin_attack_detailed, pattern="^admin_attack_detailed$"))
 
     application.add_handler(MessageHandler(filters.Regex("^(🚀 Test va o'quv platformasi|🚀 Платформа обучения|🚀 BIQS Mini App-ni ochish|🚀 Открыть BIQS Mini App)$"), start_command))
-    application.add_handler(MessageHandler(filters.Regex("^(👥 Mening sexim \(Xodimlarim\)|👥 Мой цех \(Сотрудники\))$"), my_team_handler))
+    application.add_handler(MessageHandler(filters.Regex("^(📊 Mening statistikam|📊 Моя статистика)$"), show_stats_handler))
+    application.add_handler(MessageHandler(filters.Regex("^(👥 Mening jamoam .xodimlar.|👥 Моя команда .сотрудники.)$"), my_team_handler))
+    application.add_handler(MessageHandler(filters.Regex("^(🏢 Mening rahbarlarim|🏢 Моё руководство)$"), my_management_handler))
+    application.add_handler(MessageHandler(filters.Regex("^(👥 Mening sexim .Xodimlarim.|👥 Мой цех .Сотрудники.)$"), my_team_handler))
     application.add_handler(MessageHandler(filters.Regex("^(⚙️ Admin paneli|⚙️ Панель Администратора)$"), remove_old_admin_btn_handler))
     application.add_handler(MessageHandler(filters.Regex("^(👨‍💼 Создатель|👨‍💼 Yaratuvchi|👨‍💼 Asoschi)$"), founder_handler))
     application.add_handler(MessageHandler(filters.Regex("^(🆘 Техподдержка|🆘 Texnik yordam)$"), support_handler))
@@ -808,8 +1005,13 @@ def create_bot_app(webhook_mode: bool = False):
     application.add_handler(CommandHandler("newcode", newcode_command))
     application.add_handler(CommandHandler("addadmin", addadmin_command))
     application.add_handler(CommandHandler("workers", workers_command))
+    application.add_handler(CommandHandler("stats", show_stats_handler))
+    application.add_handler(CommandHandler("deleteuser", deleteuser_command))
     application.add_handler(CommandHandler("myteam", my_team_handler))
+    application.add_handler(CommandHandler("sectors", sectors_stats_handler))
+    application.add_handler(CommandHandler("lines", sectors_stats_handler))
     application.add_handler(CommandHandler("update_kb", update_keyboards_command))
+
 
     return application
 

@@ -223,14 +223,24 @@ async def submit_quiz(data: QuizSubmitRequest):
     )
     return {"status": "success", "percentage": data.percentage}
 
-# Leaderboard
+# Leaderboard & Sector Statistics
 @app.get("/api/leaderboard")
-async def get_leaderboard_route(user_telegram_id: Optional[int] = None):
-    leaders = database.get_leaderboard(20)
+async def get_leaderboard_route(user_telegram_id: Optional[int] = None, shop_name: Optional[str] = None):
+    leaders = database.get_leaderboard(limit=500, shop_name=shop_name)
+    sector_stats = database.get_shop_statistics()
     my_stats = {"tests_count": 0, "best_score": 0, "avg_score": 0}
     if user_telegram_id:
         my_stats = database.get_user_stats(user_telegram_id)
-    return {"leaderboard": leaders, "my_stats": my_stats}
+    return {
+        "leaderboard": leaders, 
+        "sector_stats": sector_stats,
+        "my_stats": my_stats
+    }
+
+@app.get("/api/sector_stats")
+async def get_sector_stats_route():
+    return database.get_shop_statistics()
+
 
 # Admin API
 @app.get("/api/admin/codes")
