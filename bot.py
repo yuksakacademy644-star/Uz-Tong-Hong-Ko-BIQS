@@ -62,14 +62,13 @@ MANAGEMENT_ROLES = ('nachalnik', 'master', 'brigadir', 'quality', 'director')
 
 
 def get_main_keyboard(lang: str = 'ru', user_id: int = None):
-    url = WEBAPP_URL
     is_admin = database.is_admin_or_superadmin(user_id) if user_id else False
     user = database.get_user(user_id) if user_id else None
     role = user.get("role", "worker") if user else "worker"
     is_mgmt = role in MANAGEMENT_ROLES or is_admin
 
+    kb = []
     if lang == 'uz':
-        kb = [[KeyboardButton("🚀 BIQS Mini App-ni ochish", web_app=WebAppInfo(url=url))]]
         kb.append([KeyboardButton("📊 Mening statistikam")])
         if is_mgmt:
             kb.append([KeyboardButton("👥 Mening jamoam (xodimlar)")])
@@ -77,7 +76,6 @@ def get_main_keyboard(lang: str = 'ru', user_id: int = None):
             kb.append([KeyboardButton("🏢 Mening rahbarlarim")])
         kb.append([KeyboardButton("👨‍💼 Yaratuvchi"), KeyboardButton("🆘 Texnik yordam")])
     else:
-        kb = [[KeyboardButton("🚀 Открыть BIQS Mini App", web_app=WebAppInfo(url=url))]]
         kb.append([KeyboardButton("📊 Моя статистика")])
         if is_mgmt:
             kb.append([KeyboardButton("👥 Моя команда (сотрудники)")])
@@ -85,6 +83,7 @@ def get_main_keyboard(lang: str = 'ru', user_id: int = None):
             kb.append([KeyboardButton("🏢 Моё руководство")])
         kb.append([KeyboardButton("👨‍💼 Создатель"), KeyboardButton("🆘 Техподдержка")])
     return ReplyKeyboardMarkup(kb, resize_keyboard=True)
+
 
 def get_webapp_inline_keyboard(lang: str = 'ru'):
     url = WEBAPP_URL
