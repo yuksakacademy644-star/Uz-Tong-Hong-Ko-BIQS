@@ -83,6 +83,52 @@ def init_db():
     conn.commit()
     conn.close()
     cleanup_old_test_results()
+    init_banned_prompts_table()
+
+def init_banned_prompts_table():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS banned_prompts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        pattern TEXT UNIQUE NOT NULL,
+        category TEXT DEFAULT 'general',
+        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+    conn.commit()
+
+    cursor.execute("SELECT COUNT(*) FROM banned_prompts")
+    if cursor.fetchone()[0] == 0:
+        default_patterns = [
+            # Profanity / Abusive terms
+            ("блять", "profanity"), ("сука", "profanity"), ("хуй", "profanity"),
+            ("пизд", "profanity"), ("нах", "profanity"), ("долбоеб", "profanity"),
+            ("гандон", "profanity"), ("пидор", "profanity"), ("dalbayob", "profanity"),
+            ("jallap", "profanity"), ("skay", "profanity"), ("qotoq", "profanity"),
+            ("sikay", "profanity"), ("amcha", "profanity"),
+            # Prompt injection / Attack strings
+            ("ignore previous instructions", "prompt_injection"),
+            ("forget all previous instructions", "prompt_injection"),
+            ("you are now dan", "prompt_injection"),
+            ("jailbreak", "prompt_injection"),
+            ("select * from", "sql_injection"),
+            ("drop table", "sql_injection"),
+            ("union select", "sql_injection"),
+            ("<script>", "xss"),
+            ("eval(", "code_injection"),
+            ("exec(", "code_injection"),
+            ("system(", "code_injection"),
+            ("rm -rf", "command_injection"),
+            # Links
+            ("http://", "link"), ("https://", "link"), ("t.me/", "link"),
+            ("tg://", "link"), ("bit.ly", "link"), ("tinyurl.com", "link"),
+            ("www.", "link")
+        ]
+        cursor.executemany("INSERT OR IGNORE INTO banned_prompts (pattern, category) VALUES (?, ?)", default_patterns)
+        conn.commit()
+    conn.close()
+
 
 def cleanup_old_test_results():
     conn = get_db()
@@ -503,7 +549,71 @@ def get_shop_statistics():
 
 
 
+def add_banned_prompt(pattern: str, category: str = 'general'):
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO banned_prompts (pattern, category) VALUES (?, ?)", (pattern.strip().lower(), category))
+        conn.commit()
+        success = True
+    except Exception:
+        success = False
+    conn.close()
+    return success
+
+def get_all_banned_prompts():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, pattern, category, added_at FROM banned_prompts ORDER BY category, pattern")
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def delete_banned_prompt(pattern_id: int):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM banned_prompts WHERE id = ?", (pattern_id,))
+    deleted = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return deleted
+
+def check_security_violations(text: str, user_id: int = None):
+    """
+    Checks text against security patterns (profanity, links, prompt injection attacks).
+    Returns (is_violation: bool, violation_title: str, matched_pattern: str)
+    """
+    if not text:
+        return False, None, None
+
+    # Superadmin / Admin bypass
+    if user_id and is_admin_or_superadmin(user_id):
+        return False, None, None
+
+    text_lower = text.lower().strip()
+
+    banned_items = get_all_banned_prompts()
+    for item in banned_items:
+        pat = item['pattern'].lower()
+        cat = item['category']
+
+        if pat in text_lower:
+            type_labels = {
+                'profanity': 'Ненормативная лексика / Матерные слова',
+                'link': 'Несанкционированная ссылка',
+                'prompt_injection': 'Вирусный промпт / Попытка взлома',
+                'sql_injection': 'SQL-Инъекция',
+                'xss': 'XSS-Атака',
+                'code_injection': 'Инъекция кода',
+                'command_injection': 'Системная команда'
+            }
+            violation_title = type_labels.get(cat, 'Запрещенный промпт')
+            return True, violation_title, pat
+
+    return False, None, None
+
 def log_attack(telegram_id: int, attempt_details: str):
+
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""

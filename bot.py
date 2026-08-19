@@ -1,6 +1,8 @@
 import asyncio
 import logging
+from datetime import datetime
 from telegram import (
+
     Update, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove,
     InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo,
     MenuButtonWebApp
@@ -924,6 +926,139 @@ async def admin_broadcast_send(update: Update, context: ContextTypes.DEFAULT_TYP
     await update.message.reply_text(f"✅ Рассылка завершена! Успешно доставлено: {success_count} пользователям.")
     return ConversationHandler.END
 
+async def notify_admins_about_security_violation(bot, user_id: int, text: str, violation_type: str, matched_pattern: str):
+    """Sends immediate high-priority Telegram message to all Admins when security protection is triggered."""
+    user = database.get_user(user_id) or {}
+    full_name = user.get("full_name", "Неизвестный пользователь")
+    username = f"@{user.get('username')}" if user.get("username") else "отсутствует"
+    shop_name = user.get("shop_name", "Не указан")
+    master_name = user.get("master_name", "Не указан")
+    role = user.get("role", "worker")
+    phone = user.get("phone", "—")
+    time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    log_detail = f"[{violation_type}] Промпт: '{text}' (совпадение: '{matched_pattern}')"
+    database.log_attack(user_id, log_detail)
+
+    alert_text = (
+        "🚨 <b>ВНИМАНИЕ! ПОПЫТКА НЕСАНКЦИОНИРОВАННОГО ДОСТУПА / НАРУШЕНИЯ</b> 🚨\n\n"
+        "⚠️ <b>Обнаружено нарушение правил безопасности бота!</b>\n\n"
+        f"🛑 <b>Тип нарушения:</b> <code>{violation_type}</code>\n"
+        f"🎯 <b>Совпадение:</b> <code>{matched_pattern}</code>\n\n"
+        f"📝 <b>Текст сообщения:</b>\n<code>{text[:500]}</code>\n\n"
+        "👤 <b>ПРОФИЛЬ НАРУШИТЕЛЯ:</b>\n"
+        f"• <b>ФИО:</b> {full_name}\n"
+        f"• <b>Username:</b> {username}\n"
+        f"• <b>TG ID:</b> <code>{user_id}</code>\n"
+        f"• <b>Цех / Участок:</b> {shop_name}\n"
+        f"• <b>Мастер / Руководитель:</b> {master_name}\n"
+        f"• <b>Роль:</b> <code>{role}</code>\n"
+        f"• <b>Телефон:</b> {phone}\n"
+        f"🕒 <b>Время:</b> <code>{time_str}</code>\n\n"
+        "<i>⚠️ Пользователю отправлено предупреждение. Нарушение зафиксировано в журнале атак.</i>"
+    )
+
+    admins = database.get_all_admins()
+    admin_ids = set(config.ADMIN_IDS)
+    for a in admins:
+        admin_ids.add(a["telegram_id"])
+
+    for aid in admin_ids:
+        try:
+            await bot.send_message(
+                chat_id=aid,
+                text=alert_text,
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            logger.warning(f"[SECURITY ALERT] Could not notify admin {aid}: {e}")
+
+async def security_inspection_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Middleware that inspects incoming text messages for profanity, links, or malicious prompts.
+    """
+    if not update or not update.effective_message or not update.effective_message.text:
+        return False
+
+    user_id = update.effective_user.id
+    text = update.effective_message.text
+
+    is_violation, violation_type, matched_pattern = database.check_security_violations(text, user_id)
+    if is_violation:
+        await notify_admins_about_security_violation(context.bot, user_id, text, violation_type, matched_pattern)
+        
+        warn_msg = (
+            "🚨 <b>XAVFSIZLIK OGOHLANTIRISHI / ПРЕДУПРЕЖДЕНИЕ БЕЗОПАСНОСТИ</b> 🚨\n\n"
+            "⚠️ <b>Nesanobjectlashtirilgan habar, havola yoki taqiqlangan promt aniqlandi!</b>\n"
+            "<i>Обнаружено несанкционированное сообщение, ссылка или запрещенный промпт!</i>\n\n"
+            "📋 Sizning profilingiz va habaringiz <b>Administratorga (Xavfsizlik xizmati)</b> yuborildi.\n"
+            "<i>Ваш профиль и текст сообщения отправлены администратору.</i>"
+        )
+        await update.effective_message.reply_html(warn_msg)
+        return True
+
+    return False
+
+async def addbanned_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if not database.check_user_permission(user_id, "view_attacks"):
+        await update.message.reply_html("⚠️ Sizda taqiqlangan промптларни бошқариш huquqi yo'q.")
+        return
+
+    args = context.args
+    if not args:
+        await update.message.reply_html(
+            "⚠️ <b>Формат команды / Использование:</b>\n"
+            "<code>/addbanned &lt;промпт или матерное слово или ссылка&gt;</code>\n\n"
+            "<i>Пример:</i> <code>/addbanned bad_word_here</code>"
+        )
+        return
+
+    pattern = " ".join(args)
+    success = database.add_banned_prompt(pattern)
+    if success:
+        await update.message.reply_html(f"✅ <b>Промпт/слово добавлено в защиту!</b>\n<code>{pattern}</code>")
+    else:
+        await update.message.reply_html(f"⚠️ Этот промпт уже существует в базе защиты!")
+
+async def bannedlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if not database.check_user_permission(user_id, "view_attacks"):
+        await update.message.reply_html("⚠️ Sizda ушбу бўлимни кўриш huquqi yo'q.")
+        return
+
+    banned = database.get_all_banned_prompts()
+    if not banned:
+        await update.message.reply_text("📋 Защитный список пока пуст.")
+        return
+
+    msg = "🛡 <b>СПИСОК ВИРУСНЫХ ПРОМПТОВ И ПРАВИЛ ЗАЩИТЫ:</b>\n\n"
+    for b in banned:
+        msg += f"• <code>{b['pattern']}</code> [<i>{b['category']}</i>] (ID: {b['id']})\n"
+
+    msg += "\n➕ Добавить: <code>/addbanned &lt;промпт&gt;</code>\n➖ Удалить: <code>/delbanned &lt;ID&gt;</code>"
+    if len(msg) > 3500:
+        await update.message.reply_html(msg[:3500] + "\n...")
+    else:
+        await update.message.reply_html(msg)
+
+async def delbanned_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if not database.check_user_permission(user_id, "view_attacks"):
+        return
+
+    args = context.args
+    if not args or not args[0].isdigit():
+        await update.message.reply_html("⚠️ <b>Укажите ID правила:</b> <code>/delbanned 5</code>")
+        return
+
+    pid = int(args[0])
+    deleted = database.delete_banned_prompt(pid)
+    if deleted:
+        await update.message.reply_html(f"✅ Правило #{pid} удалено из защиты!")
+    else:
+        await update.message.reply_html(f"❌ Правило с ID #{pid} не найдено.")
+
 async def admin_broadcast_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❌ Рассылка отменена.")
     return ConversationHandler.END
@@ -1001,9 +1136,9 @@ def create_bot_app(webhook_mode: bool = False):
                 
     application.add_error_handler(error_handler)
 
-    # Silent fallback: ignore unrecognized text messages without replying
-    async def global_fallback_text(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-        pass
+    # Security Inspection Fallback Handler
+    async def global_fallback_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        await security_inspection_handler(update, context)
 
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, global_fallback_text))
 
@@ -1016,7 +1151,11 @@ def create_bot_app(webhook_mode: bool = False):
     application.add_handler(CommandHandler("myteam", my_team_handler))
     application.add_handler(CommandHandler("sectors", sectors_stats_handler))
     application.add_handler(CommandHandler("lines", sectors_stats_handler))
+    application.add_handler(CommandHandler("addbanned", addbanned_command))
+    application.add_handler(CommandHandler("bannedlist", bannedlist_command))
+    application.add_handler(CommandHandler("delbanned", delbanned_command))
     application.add_handler(CommandHandler("update_kb", update_keyboards_command))
+
 
 
     return application
