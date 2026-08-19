@@ -478,24 +478,29 @@ def get_shop_statistics():
     cursor = conn.cursor()
     cursor.execute("""
     SELECT 
-        u.shop_name,
+        s.shop_name,
         COUNT(u.telegram_id) as total_workers,
         COUNT(user_best.best_score) as tested_workers,
         COALESCE(ROUND(AVG(user_best.best_score), 1), 0) as avg_score,
-        SUM(CASE WHEN user_best.best_score >= 80 THEN 1 ELSE 0 END) as expert_count
-    FROM users u
+        COALESCE(SUM(CASE WHEN user_best.best_score >= 80 THEN 1 ELSE 0 END), 0) as expert_count
+    FROM (
+        SELECT shop_name FROM users WHERE shop_name IS NOT NULL AND shop_name != ''
+        UNION
+        SELECT shop_name FROM invite_codes WHERE shop_name IS NOT NULL AND shop_name != ''
+    ) s
+    LEFT JOIN users u ON u.shop_name = s.shop_name AND (u.role NOT IN ('superadmin', 'admin') OR u.role IS NULL)
     LEFT JOIN (
         SELECT user_telegram_id, MAX(percentage) as best_score
         FROM test_results
         GROUP BY user_telegram_id
     ) user_best ON u.telegram_id = user_best.user_telegram_id
-    WHERE u.role NOT IN ('superadmin', 'admin') OR u.role IS NULL
-    GROUP BY u.shop_name
+    GROUP BY s.shop_name
     ORDER BY avg_score DESC, total_workers DESC
     """)
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
 
 
 def log_attack(telegram_id: int, attempt_details: str):

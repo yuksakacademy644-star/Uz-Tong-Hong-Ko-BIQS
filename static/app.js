@@ -55,7 +55,8 @@ const i18n = {
         tests_passed: "Пройдено тестов",
         avg_result: "Средний балл",
         rank_worker: "Рабочий",
-        rank_master: "Начальник цеха / Мастер",
+        rank_nachalnik: "Начальник цеха",
+        rank_master: "Мастер участка",
         rank_brigadier: "Бригадир",
         rank_quality: "Инженер по качеству",
         rank_director: "Руководство",
@@ -95,13 +96,15 @@ const i18n = {
         tests_passed: "Topshirilgan testlar",
         avg_result: "O'rtacha ball",
         rank_worker: "Ishchi",
-        rank_master: "Sex Boshlig'i / Master",
+        rank_nachalnik: "Sex Boshlig'i",
+        rank_master: "Master (Usta)",
         rank_brigadier: "Brigadir",
         rank_quality: "Sifat nazorati",
         rank_director: "Rahbariyat",
         rank_admin: "Administrator",
         rank_office_candidate: "BIQS Eksperti ⭐"
     }
+
 };
 
 // Initialize App
@@ -234,7 +237,8 @@ async function fetchUserInfo() {
             const rankText = document.getElementById("rankBadgeText");
             if (rankText) {
                 let roleKey = 'rank_worker';
-                if (userInfo.role === 'master') roleKey = 'rank_master';
+                if (userInfo.role === 'nachalnik') roleKey = 'rank_nachalnik';
+                else if (userInfo.role === 'master') roleKey = 'rank_master';
                 else if (userInfo.role === 'brigadier') roleKey = 'rank_brigadier';
                 else if (userInfo.role === 'quality') roleKey = 'rank_quality';
                 else if (userInfo.role === 'director') roleKey = 'rank_director';
@@ -248,10 +252,11 @@ async function fetchUserInfo() {
                 updateLanguageUI();
             }
 
-            // If Master, Brigadier, Quality, Director, or Admin, show My Team Tab
-            const canViewTeam = ['master', 'brigadier', 'quality', 'director', 'admin', 'superadmin'].includes(userInfo.role) || userInfo.is_admin;
+            // If Nachalnik, Master, Brigadier, Quality, Director, or Admin, show My Team Tab
+            const canViewTeam = ['nachalnik', 'master', 'brigadier', 'quality', 'director', 'admin', 'superadmin'].includes(userInfo.role) || userInfo.is_admin;
             if (canViewTeam) {
                 const teamBtn = document.getElementById("myTeamTabBtn");
+
                 if (teamBtn) teamBtn.classList.remove("hidden");
             }
 
@@ -589,8 +594,10 @@ function renderLeaderboard(leaders = []) {
 
         const role = item.role || 'worker';
         let roleBadge = '';
-        if (role === 'master') {
-            roleBadge = `<span class="leader-role-badge master"><i class="fa-solid fa-user-tie"></i> ${currentLang === 'ru' ? 'Начальник' : 'Sex boshlig\'i'}</span>`;
+        if (role === 'nachalnik') {
+            roleBadge = `<span class="leader-role-badge master"><i class="fa-solid fa-industry"></i> ${currentLang === 'ru' ? 'Начальник цеха' : 'Sex boshlig\'i'}</span>`;
+        } else if (role === 'master') {
+            roleBadge = `<span class="leader-role-badge master"><i class="fa-solid fa-user-tie"></i> ${currentLang === 'ru' ? 'Мастер участка' : 'Master (Usta)'}</span>`;
         } else if (role === 'brigadier') {
             roleBadge = `<span class="leader-role-badge brigadier"><i class="fa-solid fa-users-gear"></i> ${currentLang === 'ru' ? 'Бригадир' : 'Brigadir'}</span>`;
         } else if (role === 'quality') {
@@ -600,6 +607,7 @@ function renderLeaderboard(leaders = []) {
         } else if (role === 'admin' || role === 'superadmin') {
             roleBadge = `<span class="leader-role-badge admin"><i class="fa-solid fa-user-shield"></i> Admin</span>`;
         }
+
 
         const scoreText = hasTakenTest ? `${Math.round(item.best_score)}%` : '0%';
         const attemptsText = hasTakenTest 

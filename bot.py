@@ -56,7 +56,8 @@ def set_webapp_url(url: str):
             logger.warning(f"[BOT WARN] Failed to schedule menu button update: {e}")
 
 
-MANAGEMENT_ROLES = ('nachalnik', 'master', 'brigadir')
+MANAGEMENT_ROLES = ('nachalnik', 'master', 'brigadir', 'quality', 'director')
+
 
 def get_main_keyboard(lang: str = 'ru', user_id: int = None):
     url = WEBAPP_URL
@@ -251,11 +252,16 @@ async def set_language_callback(update: Update, context: ContextTypes.DEFAULT_TY
     )
 
 ROLE_LABELS = {
-    'nachalnik': ('🏭 Начальник цеха', '🏭 Tsex boshlig\'i'),
-    'master':    ('👨‍🔧 Мастер',         '👨‍🔧 Master'),
+    'nachalnik': ('🏭 Начальник цеха', '🏭 Sex boshlig\'i'),
+    'master':    ('👨‍🔧 Мастер участка', '👨‍🔧 Master (Usta)'),
     'brigadir':  ('👷 Бригадир',         '👷 Brigadir'),
     'worker':    ('👤 Рабочий',          '👤 Ishchi'),
+    'quality':   ('🛡️ Контроль качества','🛡️ Sifat nazorati'),
+    'director':  ('👑 Руководство',     '👑 Rahbariyat'),
+    'admin':     ('⚙️ Администратор',   '⚙️ Administrator'),
+    'superadmin':('⚡ Суперадминистратор','⚡ Superadmin'),
 }
+
 
 # Team Monitoring Handler (nachalnik / master / brigadir / admin)
 async def my_team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
