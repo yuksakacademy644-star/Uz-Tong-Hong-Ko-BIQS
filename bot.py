@@ -633,11 +633,15 @@ async def newcode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• <code>nachalnik</code> — 🏭 Начальник цеха\n"
             "• <code>master</code>    — 👨‍🔧 Мастер\n"
             "• <code>brigadir</code>  — 👷 Бригадир\n"
-            "• <code>worker</code>    — 👤 Рабочий\n\n"
+            "• <code>quality</code>   — 🛡️ Контроль качества\n"
+            "• <code>director</code>  — 👑 Руководство\n"
+            "• <code>worker</code>    — 🎯 Рабочий\n\n"
             "<i>Misollar:</i>\n"
             "• <code>/newcode BOSS1 nachalnik 1-Tsex</code>\n"
             "• <code>/newcode MST1 master 1-Tsex</code>\n"
             "• <code>/newcode BRG1 brigadir 1-Tsex</code>\n"
+            "• <code>/newcode QL1 quality 1-Tsex</code>\n"
+            "• <code>/newcode DIR1 director Rahbariyat</code>\n"
             "• <code>/newcode WRK1 worker 1-Tsex</code>"
         )
         return
@@ -647,10 +651,12 @@ async def newcode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     shop_startIndex = 1
 
     VALID_ROLES = {
-        "nachalnik": "nachalnik", "начальник": "nachalnik",
-        "master": "master", "мастер": "master", "boshliq": "master",
+        "nachalnik": "nachalnik", "начальник": "nachalnik", "nachalnic": "nachalnik",
+        "master": "master", "мастер": "master", "boshliq": "master", "usta": "master",
         "brigadir": "brigadir", "бригадир": "brigadir",
-        "worker": "worker", "xodim": "worker", "работник": "worker",
+        "quality": "quality", "качество": "quality", "sifat": "quality",
+        "director": "director", "директор": "director", "rahbar": "director",
+        "worker": "worker", "xodim": "worker", "работник": "worker", "ishchi": "worker",
     }
     if len(args) > 1 and args[1].lower() in VALID_ROLES:
         target_role = VALID_ROLES[args[1].lower()]
@@ -662,8 +668,12 @@ async def newcode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     database.add_invite_code(code, shop_name, master_name, user_id, target_role=target_role)
 
     role_labels = {
-        'nachalnik': '🏭 Начальник цеха', 'master': '👨‍🔧 Мастер',
-        'brigadir': '👷 Бригадир', 'worker': '👤 Рабочий'
+        'nachalnik': '🏭 Начальник цеха',
+        'master':    '👨‍🔧 Мастер',
+        'brigadir':  '👷 Бригадир',
+        'quality':   '🛡️ Контроль качества',
+        'director':  '👑 Руководство',
+        'worker':    '🎯 Рабочий',
     }
     role_badge = role_labels.get(target_role, target_role)
 

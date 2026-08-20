@@ -778,7 +778,15 @@ function renderActiveCodes(codes) {
     `;
 
     codes.forEach(c => {
-        const isMaster = c.target_role === 'master';
+        const roleLabels = {
+            'nachalnik': { label: '🏭 Nachalnik', color: 'var(--accent-gold)' },
+            'master':    { label: '👨‍🔧 Master',    color: 'var(--accent-purple)' },
+            'brigadir':  { label: '👷 Brigadir',   color: 'var(--accent-blue)' },
+            'quality':   { label: '🛡️ Quality',    color: '#34d399' },
+            'director':  { label: '👑 Director',   color: '#fbbf24' },
+            'worker':    { label: '🎯 Worker',     color: 'rgba(255,255,255,0.4)' },
+        };
+        const roleInfo = roleLabels[c.target_role] || roleLabels['worker'];
         html += `
             <tr>
                 <td>
@@ -788,8 +796,8 @@ function renderActiveCodes(codes) {
                     </strong>
                 </td>
                 <td>
-                    <span style="font-size:10px; padding:2px 6px; border-radius:4px; background:${isMaster ? 'var(--accent-purple)' : 'rgba(255,255,255,0.1)'}; color:#fff;">
-                        ${isMaster ? '👨‍💼 Master' : '🎯 Worker'}
+                    <span style="font-size:10px; padding:2px 6px; border-radius:4px; background:${roleInfo.color}22; color:${roleInfo.color}; border:1px solid ${roleInfo.color}44;">
+                        ${roleInfo.label}
                     </span>
                 </td>
                 <td>${c.shop_name}</td>
@@ -889,6 +897,16 @@ async function handleCreateCode(e) {
 
     if (!code || !shop) return;
 
+    const roleDisplayNames = {
+        'nachalnik': '🏭 Начальник цеха (Nachalnik)',
+        'master':    '👨‍🔧 Мастер (Master)',
+        'brigadir':  '👷 Бригадир (Brigadir)',
+        'quality':   '🛡️ Контроль качества (Quality)',
+        'director':  '👑 Руководство (Director)',
+        'worker':    '🎯 Работник (Worker)',
+    };
+    const roleLabel = roleDisplayNames[targetRole] || targetRole;
+
     try {
         const res = await fetch('/api/admin/create_code', {
             method: 'POST',
@@ -903,7 +921,7 @@ async function handleCreateCode(e) {
         });
 
         if (res.ok) {
-            alert(`✅ Код ${code} (${targetRole === 'master' ? 'Master' : 'Worker'}) успешно создан!`);
+            alert(`✅ Код ${code}\nРоль: ${roleLabel}\nЦех: ${shop}\n\nКод успешно создан!`);
             document.getElementById("createCodeForm").reset();
             fetchAdminData();
         }
