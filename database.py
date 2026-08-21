@@ -248,12 +248,15 @@ def get_all_invite_codes():
 ROLE_RANK = {
     'superadmin': 100,
     'admin':      90,
+    'director':   80,
+    'quality':    75,
+    'engineer':   75,
     'nachalnik':  70,
     'master':     50,
     'brigadir':   30,
     'worker':     10,
 }
-MANAGEMENT_ROLES = ('nachalnik', 'master', 'brigadir')
+MANAGEMENT_ROLES = ('nachalnik', 'master', 'brigadir', 'quality', 'director', 'engineer')
 
 def get_shop_workers(shop_name: str):
     """Returns all workers in a shop (for nachalnik — full shop, excluding admins)."""
@@ -326,7 +329,7 @@ def get_subordinates(user_id: int):
         best_score DESC
     """
 
-    if user_id in _cfg.ADMIN_IDS or role in ('superadmin', 'admin'):
+    if user_id in _cfg.ADMIN_IDS or role in ('superadmin', 'admin', 'director', 'quality', 'engineer'):
         cursor.execute(base_select + "WHERE u.role NOT IN ('superadmin','admin')" + order)
     elif role == 'nachalnik':
         cursor.execute(base_select + "WHERE u.shop_name = ? AND u.role NOT IN ('superadmin','admin','nachalnik')" + order, (shop,))
@@ -409,7 +412,7 @@ def get_all_admins():
     return admins
 
 def get_all_management():
-    """Returns all nachalnik/master/brigadir for admin panel overview."""
+    """Returns all nachalnik/master/brigadir/quality/director/engineer for admin panel overview."""
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""
@@ -418,17 +421,19 @@ def get_all_management():
            COUNT(tr.id) as tests_completed
     FROM users u
     LEFT JOIN test_results tr ON u.telegram_id = tr.user_telegram_id
-    WHERE u.role IN ('nachalnik','master','brigadir')
+    WHERE u.role IN ('nachalnik','master','brigadir','quality','director','engineer')
     GROUP BY u.telegram_id
     ORDER BY
         CASE u.role
-            WHEN 'nachalnik' THEN 1
-            WHEN 'master'    THEN 2
-            WHEN 'brigadir'  THEN 3
+            WHEN 'director'  THEN 1
+            WHEN 'quality'   THEN 2
+            WHEN 'engineer'  THEN 3
+            WHEN 'nachalnik' THEN 4
+            WHEN 'master'    THEN 5
+            WHEN 'brigadir'  THEN 6
         END,
         u.shop_name
-    """
-    )
+    """)
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]

@@ -186,11 +186,16 @@ async def get_my_team_route(telegram_id: int = Query(...)):
         raise HTTPException(status_code=404, detail="User not found")
     
     role = user.get("role", "worker")
-    if role != 'master' and not is_admin:
+    allowed_team_roles = {'nachalnik', 'master', 'brigadir', 'brigadier', 'quality', 'director', 'engineer', 'admin', 'superadmin'}
+    if role not in allowed_team_roles and not is_admin:
         raise HTTPException(status_code=403, detail="Access denied")
 
     shop_name = user.get("shop_name", "СП Уз Тонг Хонг Ко")
-    workers = database.get_shop_workers(shop_name)
+    if role in ('director', 'quality', 'engineer', 'admin', 'superadmin') or is_admin:
+        workers = database.get_all_workers_admin()
+    else:
+        workers = database.get_shop_workers(shop_name)
+        
     return {
         "shop_name": shop_name,
         "workers": workers
@@ -226,8 +231,25 @@ async def submit_quiz(data: QuizSubmitRequest):
 # Leaderboard & Sector Statistics
 @app.get("/api/leaderboard")
 async def get_leaderboard_route(user_telegram_id: Optional[int] = None, shop_name: Optional[str] = None):
-    leaders = database.get_leaderboard(limit=500, shop_name=shop_name)
-    sector_stats = database.get_shop_statistics()
+    # Check permissions
+    allowed_roles = {'superadmin', 'admin', 'director', 'quality', 'engineer', 'nachalnik'}
+    role = 'worker'
+    if user_telegram_id:
+        user = database.get_user(user_telegram_id)
+        if user:
+            role = user.get("role", "worker")
+            # If the user is admin/superadmin in config, override
+            is_admin = database.is_admin_or_superadmin(user_telegram_id)
+            if is_admin:
+                role = "superadmin"
+
+    if role in allowed_roles:
+        leaders = database.get_leaderboard(limit=500, shop_name=shop_name)
+        sector_stats = database.get_shop_statistics()
+    else:
+        leaders = []
+        sector_stats = []
+
     my_stats = {"tests_count": 0, "best_score": 0, "avg_score": 0}
     if user_telegram_id:
         my_stats = database.get_user_stats(user_telegram_id)
@@ -238,8 +260,21 @@ async def get_leaderboard_route(user_telegram_id: Optional[int] = None, shop_nam
     }
 
 @app.get("/api/sector_stats")
-async def get_sector_stats_route():
-    return database.get_shop_statistics()
+async def get_sector_stats_route(user_telegram_id: Optional[int] = None):
+    allowed_roles = {'superadmin', 'admin', 'director', 'quality', 'engineer', 'nachalnik'}
+    role = 'worker'
+    if user_telegram_id:
+        user = database.get_user(user_telegram_id)
+        if user:
+            role = user.get("role", "worker")
+            is_admin = database.is_admin_or_superadmin(user_telegram_id)
+            if is_admin:
+                role = "superadmin"
+                
+    if role in allowed_roles:
+        return database.get_shop_statistics()
+    else:
+        return []
 
 
 # Admin API

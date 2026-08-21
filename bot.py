@@ -58,7 +58,8 @@ def set_webapp_url(url: str):
             logger.warning(f"[BOT WARN] Failed to schedule menu button update: {e}")
 
 
-MANAGEMENT_ROLES = ('nachalnik', 'master', 'brigadir', 'quality', 'director')
+MANAGEMENT_ROLES = ('nachalnik', 'master', 'brigadir', 'quality', 'director', 'engineer')
+STATS_VIEW_ROLES = ('superadmin', 'admin', 'director', 'quality', 'engineer', 'nachalnik')
 
 
 def get_main_keyboard(lang: str = 'ru', user_id: int = None):
@@ -72,15 +73,11 @@ def get_main_keyboard(lang: str = 'ru', user_id: int = None):
         kb.append([KeyboardButton("📊 Mening statistikam")])
         if is_mgmt:
             kb.append([KeyboardButton("👥 Mening jamoam (xodimlar)")])
-        if role == 'worker':
-            kb.append([KeyboardButton("🏢 Mening rahbarlarim")])
         kb.append([KeyboardButton("👨‍💼 Yaratuvchi"), KeyboardButton("🆘 Texnik yordam")])
     else:
         kb.append([KeyboardButton("📊 Моя статистика")])
         if is_mgmt:
             kb.append([KeyboardButton("👥 Моя команда (сотрудники)")])
-        if role == 'worker':
-            kb.append([KeyboardButton("🏢 Моё руководство")])
         kb.append([KeyboardButton("👨‍💼 Создатель"), KeyboardButton("🆘 Техподдержка")])
     return ReplyKeyboardMarkup(kb, resize_keyboard=True)
 
@@ -259,6 +256,7 @@ ROLE_LABELS = {
     'worker':    ('👤 Рабочий',          '👤 Ishchi'),
     'quality':   ('🛡️ Контроль качества','🛡️ Sifat nazorati'),
     'director':  ('👑 Руководство',     '👑 Rahbariyat'),
+    'engineer':  ('🛠️ Инженер',          '🛠️ Injener'),
     'admin':     ('⚙️ Администратор',   '⚙️ Administrator'),
     'superadmin':('⚡ Суперадминистратор','⚡ Superadmin'),
 }
@@ -412,7 +410,7 @@ async def show_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
 
     # For management & admins, append full sector breakdown overview
-    if role in MANAGEMENT_ROLES or is_admin:
+    if role in STATS_VIEW_ROLES or is_admin:
         text += "\n\n" + format_sector_stats_text(lang)
 
     await update.message.reply_html(text, reply_markup=get_webapp_inline_keyboard(lang))
@@ -426,6 +424,12 @@ async def my_management_handler(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text("Avval /start orqali ro'yxatdan o'ting.")
         return
     lang = db_user.get("language", "ru")
+    role = db_user.get("role", "worker")
+    if role == 'worker':
+        txt = ("Ushbu bo'lim siz uchun yopilgan." if lang == 'uz'
+               else "Этот раздел недоступен для вас.")
+        await update.message.reply_html(txt)
+        return
     management = database.get_management_chain(user_id)
     if not management:
         txt = ("🏢 Sizning sexingizda rahbarlar ro'yxatdan o'tmagan." if lang == 'uz'
@@ -514,6 +518,9 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     nachalniki = [m for m in management if m['role'] == 'nachalnik']
     masters = [m for m in management if m['role'] == 'master']
     brigadiry = [m for m in management if m['role'] == 'brigadir']
+    engineers = [m for m in management if m['role'] == 'engineer']
+    qualities = [m for m in management if m['role'] == 'quality']
+    directors = [m for m in management if m['role'] == 'director']
 
     text = (
         f"⚙️ <b>ПАНЕЛЬ АДМИНИСТРАТОРА — УЗ ТОНГ ХОНГ КО</b>\n\n"
@@ -522,11 +529,17 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🔑 <b>Кодов приглашения:</b> {len(codes)}\n\n"
         f"🏭 <b>Нач. цеха:</b> {len(nachalniki)} | "
         f"👨‍🔧 <b>Мастеров:</b> {len(masters)} | "
-        f"👷 <b>Бригадиров:</b> {len(brigadiry)}\n\n"
+        f"👷 <b>Бригадиров:</b> {len(brigadiry)}\n"
+        f"🛠️ <b>Инженеров:</b> {len(engineers)} | "
+        f"🛡️ <b>Качество:</b> {len(qualities)} | "
+        f"👑 <b>Руководство:</b> {len(directors)}\n\n"
         f"📌 <b>Команды создания кодов:</b>\n"
         f"• <code>/newcode KOD nachalnik 1-Tsex</code> — Нач. цеха\n"
         f"• <code>/newcode KOD master 1-Tsex</code> — Мастер\n"
         f"• <code>/newcode KOD brigadir 1-Tsex</code> — Бригадир\n"
+        f"• <code>/newcode KOD engineer 1-Tsex</code> — Инженер\n"
+        f"• <code>/newcode KOD quality 1-Tsex</code> — Качество\n"
+        f"• <code>/newcode KOD director 1-Tsex</code> — Руководство\n"
         f"• <code>/newcode KOD worker 1-Tsex</code> — Рабочий\n"
         f"• <code>/addadmin ID [PERMS]</code> — Назначить IT-админа\n"
     )
@@ -635,12 +648,14 @@ async def newcode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• <code>brigadir</code>  — 👷 Бригадир\n"
             "• <code>quality</code>   — 🛡️ Контроль качества\n"
             "• <code>director</code>  — 👑 Руководство\n"
+            "• <code>engineer</code>  — 🛠️ Инженер\n"
             "• <code>worker</code>    — 🎯 Рабочий\n\n"
             "<i>Misollar:</i>\n"
             "• <code>/newcode BOSS1 nachalnik 1-Tsex</code>\n"
             "• <code>/newcode MST1 master 1-Tsex</code>\n"
             "• <code>/newcode BRG1 brigadir 1-Tsex</code>\n"
             "• <code>/newcode QL1 quality 1-Tsex</code>\n"
+            "• <code>/newcode ENG1 engineer 1-Tsex</code>\n"
             "• <code>/newcode DIR1 director Rahbariyat</code>\n"
             "• <code>/newcode WRK1 worker 1-Tsex</code>"
         )
@@ -656,6 +671,7 @@ async def newcode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "brigadir": "brigadir", "бригадир": "brigadir",
         "quality": "quality", "качество": "quality", "sifat": "quality",
         "director": "director", "директор": "director", "rahbar": "director",
+        "engineer": "engineer", "инженер": "engineer", "injener": "engineer",
         "worker": "worker", "xodim": "worker", "работник": "worker", "ishchi": "worker",
     }
     if len(args) > 1 and args[1].lower() in VALID_ROLES:
@@ -673,6 +689,7 @@ async def newcode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'brigadir':  '👷 Бригадир',
         'quality':   '🛡️ Контроль качества',
         'director':  '👑 Руководство',
+        'engineer':  '🛠️ Инженер',
         'worker':    '🎯 Рабочий',
     }
     role_badge = role_labels.get(target_role, target_role)
