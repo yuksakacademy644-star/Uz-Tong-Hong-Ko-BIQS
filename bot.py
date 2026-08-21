@@ -292,7 +292,8 @@ async def my_team_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         line = f"{idx}. <b>{w['full_name']}</b> — <i>{lbl}</i>{badge}\n"
         line += f"   🎯 {'Лучший результат' if lang=='ru' else 'Eng yaxshi natija'}: <b>{round(w['best_score'])}%</b> | "
         line += f"📝 {'Попыток' if lang=='ru' else 'Testlar'}: {w['tests_completed']}\n"
-        if w.get('latest_mistakes'):
+        show_mistakes = (role in ('director', 'quality', 'engineer', 'nachalnik', 'admin', 'superadmin')) or is_admin
+        if show_mistakes and w.get('latest_mistakes'):
             try:
                 ml = _json.loads(w['latest_mistakes'])
                 ms = ", ".join(ml) if isinstance(ml, list) else str(w['latest_mistakes'])

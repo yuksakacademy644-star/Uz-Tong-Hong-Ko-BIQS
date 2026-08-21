@@ -190,12 +190,14 @@ async def get_my_team_route(telegram_id: int = Query(...)):
     if role not in allowed_team_roles and not is_admin:
         raise HTTPException(status_code=403, detail="Access denied")
 
+    workers = database.get_subordinates(telegram_id)
+    
+    # Restrict detailed mistake logs for master and brigadir (only higher management can see detailed mistakes)
+    if role in ('master', 'brigadir', 'brigadier'):
+        for w in workers:
+            w['latest_mistakes'] = None
+
     shop_name = user.get("shop_name", "СП Уз Тонг Хонг Ко")
-    if role in ('director', 'quality', 'engineer', 'admin', 'superadmin') or is_admin:
-        workers = database.get_all_workers_admin()
-    else:
-        workers = database.get_shop_workers(shop_name)
-        
     return {
         "shop_name": shop_name,
         "workers": workers
