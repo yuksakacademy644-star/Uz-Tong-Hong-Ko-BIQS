@@ -250,7 +250,7 @@ async def set_language_callback(update: Update, context: ContextTypes.DEFAULT_TY
     )
 
 ROLE_LABELS = {
-    'nachalnik': ('🏭 Начальник цеха', '🏭 Sex boshlig\'i'),
+    'nachalnik': ('🏭 Начальник цеха', '🏭 Seh boshlig\'i'),
     'master':    ('👨‍🔧 Мастер участка', '👨‍🔧 Master (Usta)'),
     'brigadir':  ('👷 Бригадир',         '👷 Brigadir'),
     'worker':    ('👤 Рабочий',          '👤 Ishchi'),

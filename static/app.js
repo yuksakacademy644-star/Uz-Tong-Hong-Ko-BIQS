@@ -97,7 +97,7 @@ const i18n = {
         tests_passed: "Topshirilgan testlar",
         avg_result: "O'rtacha ball",
         rank_worker: "Ishchi",
-        rank_nachalnik: "Sex Boshlig'i",
+        rank_nachalnik: "Seh Boshlig'i",
         rank_master: "Master (Usta)",
         rank_brigadier: "Brigadir",
         rank_quality: "Sifat nazorati",
@@ -619,7 +619,7 @@ function renderLeaderboard(leaders = []) {
         const role = item.role || 'worker';
         let roleBadge = '';
         if (role === 'nachalnik') {
-            roleBadge = `<span class="leader-role-badge master"><i class="fa-solid fa-industry"></i> ${currentLang === 'ru' ? 'Начальник цеха' : 'Sex boshlig\'i'}</span>`;
+            roleBadge = `<span class="leader-role-badge master"><i class="fa-solid fa-industry"></i> ${currentLang === 'ru' ? 'Начальник цеха' : 'Seh boshlig\'i'}</span>`;
         } else if (role === 'master') {
             roleBadge = `<span class="leader-role-badge master"><i class="fa-solid fa-user-tie"></i> ${currentLang === 'ru' ? 'Мастер участка' : 'Master (Usta)'}</span>`;
         } else if (role === 'brigadier' || role === 'brigadir') {
