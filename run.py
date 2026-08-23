@@ -5,6 +5,7 @@ import time
 import subprocess
 import re
 import uvicorn
+import requests
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
@@ -14,7 +15,18 @@ import database
 from server import app as fastapi_app
 from bot import create_bot_app, set_webapp_url
 
-import requests
+def is_production_alive(url: str) -> bool:
+    """Check if production Render server is online and healthy."""
+    if not url or not url.startswith("https://"):
+        return False
+    try:
+        r = requests.get(f"{url.rstrip('/')}/health", timeout=3)
+        if r.status_code == 200:
+            data = r.json()
+            return data.get("status") == "ok" and data.get("alive") is True
+    except Exception:
+        pass
+    return False
 
 def start_fastapi():
     print("[SERVER] Starting FastAPI Server on http://0.0.0.0:8000 ...")
@@ -50,13 +62,14 @@ def setup_tunnel_bg():
         set_webapp_url(custom_url)
         return
 
-    # ✅ Локальный запуск — используем постоянный Render URL (никаких туннелей!)
-    # Это исключает Pinggy, localhost.run и любые страницы предупреждений навсегда.
+    # Check if Production URL on Render is alive
     production_url = getattr(config, "PRODUCTION_URL", "")
-    if production_url:
-        print(f"[TUNNEL] 🌐 Local mode → using Production URL: {production_url}")
+    if production_url and is_production_alive(production_url):
+        print(f"[TUNNEL] 🌐 Production URL is active: {production_url}")
         set_webapp_url(production_url)
         return
+    elif production_url:
+        print(f"[TUNNEL] ⚠️ Production URL ({production_url}) is suspended or offline! Falling back to local Cloudflare tunnel...")
 
     # Attempt 1: ngrok (if authtoken is present)
     ngrok_authtoken = getattr(config, "NGROK_AUTHTOKEN", "") or os.environ.get("NGROK_AUTHTOKEN")
@@ -129,7 +142,6 @@ def setup_tunnel_bg():
         time.sleep(3)
 
 
-
 def main():
     print("[INIT] Initializing Uz Tong Hong Ko BIQS Database...")
     database.init_db()
@@ -139,8 +151,6 @@ def main():
     keep_awake_thread.start()
 
     # ── PRODUCTION (Render): Webhook mode ────────────────────────────────────
-    # Bot is initialized inside FastAPI lifespan (server.py).
-    # Telegram pushes updates to /webhook → instant response, no cold-start delay.
     if os.environ.get("RENDER"):
         print("[RUN] 🚀 Production mode: FastAPI + Webhook Bot starting...")
         uvicorn.run(fastapi_app, host=config.HOST, port=config.PORT, log_level="info")
@@ -159,18 +169,12 @@ def main():
 
     # Check if Render Webhook bot is already online
     prod_url = getattr(config, "PRODUCTION_URL", "").rstrip("/")
-    render_webhook_online = False
     force_poll = "--poll" in sys.argv
+    render_webhook_online = False
     
     if prod_url and not force_poll:
-        try:
-            print(f"[INIT] Checking if production bot is active at {prod_url} (waiting up to 60s for wake-up)...")
-            r = requests.get(f"{prod_url}/health", timeout=60)
-            if r.status_code == 200 and r.json().get("mode") == "webhook":
-                render_webhook_online = True
-        except Exception as e:
-            print(f"[INIT] Production health check failed or timed out: {e}")
-            render_webhook_online = False
+        print(f"[INIT] Checking if production bot is active at {prod_url}...")
+        render_webhook_online = is_production_alive(prod_url)
 
     if render_webhook_online and not force_poll:
         print("\n==================================================================")
@@ -186,7 +190,7 @@ def main():
             print("[SHUTDOWN] Exiting...")
             return
 
-    print("[BOT] Render Webhook offline or not configured. Starting local polling...")
+    print("[BOT] Render Webhook offline/suspended. Starting local polling...")
     from telegram import Update
     while True:
         try:
@@ -203,3 +207,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
