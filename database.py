@@ -155,11 +155,12 @@ def init_banned_prompts_table():
 
 
 def cleanup_old_test_results():
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM test_results WHERE completed_at < datetime('now', '-30 days')")
-    conn.commit()
-    conn.close()
+    """
+    Test results are permanently preserved for monthly reporting & historical archives.
+    Automatic deletion is disabled per user requirements.
+    """
+    pass
+
 
 def clear_all_invite_codes():
     conn = get_db()
@@ -575,6 +576,302 @@ def get_shop_statistics():
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+# ─────────────────────────────────────────────────────────────────
+# Monthly Reports & Historical Archives Functions
+# ─────────────────────────────────────────────────────────────────
+MONTH_NAMES_RU = {
+    "01": "Январь", "02": "Февраль", "03": "Март", "04": "Апрель",
+    "05": "Май", "06": "Июнь", "07": "Июль", "08": "Август",
+    "09": "Сентябрь", "10": "Октябрь", "11": "Ноябрь", "12": "Декабрь"
+}
+MONTH_NAMES_UZ = {
+    "01": "Yanvar", "02": "Fevral", "03": "Mart", "04": "Aprel",
+    "05": "May", "06": "Iyun", "07": "Iyul", "08": "Avgust",
+    "09": "Sentabr", "10": "Oktabr", "11": "Noyabr", "12": "Dekabr"
+}
+
+def get_available_report_months():
+    """
+    Returns list of available months in DB format plus current month.
+    Each item: {"code": "YYYY-MM", "label_ru": "Август 2026", "label_uz": "Avgust 2026", "count": int}
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT strftime('%Y-%m', completed_at) as month_code, COUNT(*) as cnt
+        FROM test_results
+        WHERE completed_at IS NOT NULL
+        GROUP BY month_code
+        ORDER BY month_code DESC
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+
+    months_dict = {}
+    for r in rows:
+        m_code = r["month_code"]
+        if m_code:
+            months_dict[m_code] = r["cnt"]
+
+    # Always ensure current month is in list
+    now_code = datetime.datetime.now().strftime("%Y-%m")
+    if now_code not in months_dict:
+        months_dict[now_code] = 0
+
+    result = []
+    for m_code in sorted(months_dict.keys(), reverse=True):
+        parts = m_code.split("-")
+        if len(parts) == 2:
+            year, m_num = parts[0], parts[1]
+            ru_name = MONTH_NAMES_RU.get(m_num, m_num)
+            uz_name = MONTH_NAMES_UZ.get(m_num, m_num)
+            result.append({
+                "code": m_code,
+                "label_ru": f"{ru_name} {year}",
+                "label_uz": f"{uz_name} {year}",
+                "count": months_dict[m_code]
+            })
+    return result
+
+def get_monthly_test_results(month_code: str = None, shop_name: str = None):
+    """
+    Returns test statistics and results per worker for a specific month (YYYY-MM) or 'all'.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+
+    query = """
+    SELECT u.telegram_id, u.full_name, u.username, u.phone, u.shop_name, u.master_name, u.role,
+           COALESCE(MAX(tr.percentage), 0) as best_score,
+           COALESCE(ROUND(AVG(tr.percentage), 1), 0) as avg_score,
+           COUNT(tr.id) as tests_completed,
+           MAX(tr.completed_at) as last_test_date,
+           (SELECT mistakes FROM test_results tr2 
+            WHERE tr2.user_telegram_id = u.telegram_id 
+    """
+    params = []
+    if month_code and month_code != "all":
+        query += " AND strftime('%Y-%m', tr2.completed_at) = ? "
+        params.append(month_code)
+
+    query += """ ORDER BY completed_at DESC LIMIT 1) as latest_mistakes
+    FROM users u
+    """
+
+    if month_code and month_code != "all":
+        query += " JOIN test_results tr ON u.telegram_id = tr.user_telegram_id AND strftime('%Y-%m', tr.completed_at) = ? "
+        params.append(month_code)
+    else:
+        query += " LEFT JOIN test_results tr ON u.telegram_id = tr.user_telegram_id "
+
+    where_clauses = []
+    if shop_name and shop_name != "all":
+        where_clauses.append("u.shop_name = ?")
+        params.append(shop_name)
+
+    if where_clauses:
+        query += " WHERE " + " AND ".join(where_clauses)
+
+    query += """
+    GROUP BY u.telegram_id
+    ORDER BY best_score DESC, tests_completed DESC, u.registered_at ASC
+    """
+
+    cursor.execute(query, tuple(params))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def generate_monthly_report_file(month_code: str = None, shop_name: str = None, file_format: str = "xlsx") -> str:
+    """
+    Generates Excel (.xlsx) or CSV file with the monthly test report.
+    Returns absolute file path.
+    """
+    import os
+    import json
+
+    results = get_monthly_test_results(month_code=month_code, shop_name=shop_name)
+
+    if not month_code or month_code == "all":
+        month_label_ru = "За всё время"
+        file_suffix = "ALL"
+    else:
+        parts = month_code.split("-")
+        if len(parts) == 2:
+            year, m_num = parts[0], parts[1]
+            month_label_ru = f"{MONTH_NAMES_RU.get(m_num, m_num)} {year}"
+            file_suffix = month_code
+        else:
+            month_label_ru = month_code
+            file_suffix = month_code
+
+    reports_dir = os.path.join(os.path.dirname(__file__), "reports")
+    os.makedirs(reports_dir, exist_ok=True)
+
+    filename = f"BIQS_Report_{file_suffix}.{file_format}"
+    filepath = os.path.join(reports_dir, filename)
+
+    role_map = {
+        'superadmin': 'Суперадминистратор',
+        'admin': 'Администратор',
+        'director': 'Руководство',
+        'quality': 'Контроль качества',
+        'engineer': 'Инженер',
+        'nachalnik': 'Начальник цеха',
+        'master': 'Мастер участка',
+        'brigadir': 'Бригадир',
+        'worker': 'Рабочий'
+    }
+
+    if file_format == "xlsx":
+        try:
+            import openpyxl
+            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+            from openpyxl.utils import get_column_letter
+
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Отчет BIQS"
+
+            ws.views.sheetView[0].showGridLines = True
+
+            ws.merge_cells("A1:K1")
+            ws["A1"] = "СП УЗ ТОНГ ХОНГ КО — ЕЖЕМЕСЯЧНЫЙ ОТЧЕТ ПО ТЕСТИРОВАНИЮ BIQS"
+            ws["A1"].font = Font(name="Calibri", size=14, bold=True, color="FFFFFF")
+            ws["A1"].fill = PatternFill(start_color="1B365D", end_color="1B365D", fill_type="solid")
+            ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
+            ws.row_dimensions[1].height = 35
+
+            ws.merge_cells("A2:K2")
+            ws["A2"] = f"Период: {month_label_ru} | Цех: {shop_name or 'Все цеха'} | Дата экспорта: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            ws["A2"].font = Font(name="Calibri", size=10, italic=True, color="555555")
+            ws["A2"].alignment = Alignment(horizontal="center", vertical="center")
+            ws.row_dimensions[2].height = 20
+
+            headers = [
+                "№", "ФИО сотрудника", "Telegram ID / Username", "Телефон", 
+                "Должность", "Цех / Участок", "Лучший результат (%)", 
+                "Средний балл (%)", "Кол-во тестов", "Статус BIQS", 
+                "Допущенные ошибки"
+            ]
+
+            ws.append([])
+            ws.append(headers)
+            ws.row_dimensions[4].height = 26
+
+            header_fill = PatternFill(start_color="2B579A", end_color="2B579A", fill_type="solid")
+            header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+            thin_border = Border(
+                left=Side(style='thin', color='D9D9D9'),
+                right=Side(style='thin', color='D9D9D9'),
+                top=Side(style='thin', color='D9D9D9'),
+                bottom=Side(style='thin', color='D9D9D9')
+            )
+
+            for col_num in range(1, len(headers) + 1):
+                cell = ws.cell(row=4, column=col_num)
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+            pass_fill = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
+            fail_fill = PatternFill(start_color="FCE4D6", end_color="FCE4D6", fill_type="solid")
+            pass_font = Font(name="Calibri", size=10, bold=True, color="276A3C")
+            fail_font = Font(name="Calibri", size=10, bold=True, color="C65911")
+
+            for idx, r in enumerate(results, 1):
+                best = round(r.get("best_score", 0))
+                avg = r.get("avg_score", 0)
+                passed = best >= 80
+                status = "СДАЛ (Эксперт BIQS)" if passed else "НЕ СДАЛ (<80%)"
+                
+                user_tg = f"@{r['username']}" if r.get('username') else str(r.get('telegram_id', ''))
+                role_title = role_map.get(r.get('role'), r.get('role', '—'))
+
+                mistakes_str = "—"
+                if r.get('latest_mistakes'):
+                    try:
+                        ml = json.loads(r['latest_mistakes'])
+                        mistakes_str = ", ".join(ml) if isinstance(ml, list) else str(r['latest_mistakes'])
+                    except:
+                        mistakes_str = str(r['latest_mistakes'])
+
+                row_values = [
+                    idx,
+                    r.get("full_name", "—"),
+                    user_tg,
+                    r.get("phone") or "—",
+                    role_title,
+                    r.get("shop_name") or "—",
+                    f"{best}%",
+                    f"{avg}%",
+                    r.get("tests_completed", 0),
+                    status,
+                    mistakes_str
+                ]
+
+                row_idx = idx + 4
+                ws.append(row_values)
+                ws.row_dimensions[row_idx].height = 22
+
+                for col_num in range(1, len(row_values) + 1):
+                    cell = ws.cell(row=row_idx, column=col_num)
+                    cell.border = thin_border
+                    cell.font = Font(name="Calibri", size=10)
+                    if col_num in (1, 7, 8, 9):
+                        cell.alignment = Alignment(horizontal="center", vertical="center")
+                    elif col_num == 10:
+                        cell.alignment = Alignment(horizontal="center", vertical="center")
+                        cell.fill = pass_fill if passed else fail_fill
+                        cell.font = pass_font if passed else fail_font
+                    else:
+                        cell.alignment = Alignment(horizontal="left", vertical="center")
+
+            for col in ws.columns:
+                max_len = max(len(str(cell.value or '')) for cell in col)
+                col_letter = get_column_letter(col[0].column)
+                ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+            
+            ws.column_dimensions['B'].width = 28
+            ws.column_dimensions['K'].width = 35
+
+            wb.save(filepath)
+            return filepath
+        except Exception as e:
+            print(f"[EXCEL ERROR] Failed openpyxl export: {e}. Falling back to CSV.")
+
+    import csv
+    csv_path = filepath.replace(".xlsx", ".csv")
+    with open(csv_path, "w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.writer(f, delimiter=";")
+        writer.writerow(["СП УЗ ТОНГ ХОНГ КО — ЕЖЕМЕСЯЧНЫЙ ОТЧЕТ ПО ТЕСТИРОВАНИЮ BIQS"])
+        writer.writerow([f"Период: {month_label_ru} | Цех: {shop_name or 'Все цеха'}"])
+        writer.writerow([])
+        writer.writerow(["№", "ФИО сотрудника", "Telegram ID / Username", "Телефон", "Должность", "Цех / Участок", "Лучший результат (%)", "Средний балл (%)", "Кол-во тестов", "Статус BIQS", "Допущенные ошибки"])
+        
+        for idx, r in enumerate(results, 1):
+            best = round(r.get("best_score", 0))
+            avg = r.get("avg_score", 0)
+            status = "СДАЛ (80%+)" if best >= 80 else "НЕ СДАЛ (<80%)"
+            user_tg = f"@{r['username']}" if r.get('username') else str(r.get('telegram_id', ''))
+            role_title = role_map.get(r.get('role'), r.get('role', '—'))
+            mistakes_str = "—"
+            if r.get('latest_mistakes'):
+                try:
+                    ml = json.loads(r['latest_mistakes'])
+                    mistakes_str = ", ".join(ml) if isinstance(ml, list) else str(r['latest_mistakes'])
+                except:
+                    mistakes_str = str(r['latest_mistakes'])
+
+            writer.writerow([
+                idx, r.get("full_name","—"), user_tg, r.get("phone") or "—",
+                role_title, r.get("shop_name") or "—", f"{best}%", f"{avg}%",
+                r.get("tests_completed", 0), status, mistakes_str
+            ])
+    return csv_path
+
+
 
 
 

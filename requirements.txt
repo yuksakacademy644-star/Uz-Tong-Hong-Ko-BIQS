@@ -6,3 +6,5 @@ python-multipart==0.0.6
 pyngrok==7.0.0
 requests==2.31.0
 httpx==0.25.2
+openpyxl==3.1.5
+

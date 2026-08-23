@@ -60,6 +60,7 @@ def set_webapp_url(url: str):
 
 MANAGEMENT_ROLES = ('nachalnik', 'master', 'brigadir', 'quality', 'director', 'engineer')
 STATS_VIEW_ROLES = ('superadmin', 'admin', 'director', 'quality', 'engineer', 'nachalnik')
+REPORT_ALLOWED_ROLES = ('superadmin', 'admin', 'director', 'quality', 'engineer', 'nachalnik')
 
 
 def get_main_keyboard(lang: str = 'ru', user_id: int = None):
@@ -67,19 +68,25 @@ def get_main_keyboard(lang: str = 'ru', user_id: int = None):
     user = database.get_user(user_id) if user_id else None
     role = user.get("role", "worker") if user else "worker"
     is_mgmt = role in MANAGEMENT_ROLES or is_admin
+    can_view_reports = role in REPORT_ALLOWED_ROLES or is_admin
 
     kb = []
     if lang == 'uz':
         kb.append([KeyboardButton("📊 Mening statistikam")])
         if is_mgmt:
             kb.append([KeyboardButton("👥 Mening jamoam (xodimlar)")])
+        if can_view_reports:
+            kb.append([KeyboardButton("📅 Oylik hisobotlar (Excel)")])
         kb.append([KeyboardButton("👨‍💼 Yaratuvchi"), KeyboardButton("🆘 Texnik yordam")])
     else:
         kb.append([KeyboardButton("📊 Моя статистика")])
         if is_mgmt:
             kb.append([KeyboardButton("👥 Моя команда (сотрудники)")])
+        if can_view_reports:
+            kb.append([KeyboardButton("📅 Ежемесячные отчеты (Excel)")])
         kb.append([KeyboardButton("👨‍💼 Создатель"), KeyboardButton("🆘 Техподдержка")])
     return ReplyKeyboardMarkup(kb, resize_keyboard=True)
+
 
 
 def get_webapp_inline_keyboard(lang: str = 'ru'):
@@ -415,6 +422,184 @@ async def show_stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         text += "\n\n" + format_sector_stats_text(lang)
 
     await update.message.reply_html(text, reply_markup=get_webapp_inline_keyboard(lang))
+
+
+# Monthly Reports & Historical Archives Handlers
+async def monthly_reports_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    db_user = database.get_user(user_id)
+    if not db_user:
+        await update.message.reply_text("Avval /start orqali ro'yxatdan o'ting.")
+        return
+
+    lang = db_user.get("language", "ru")
+    role = db_user.get("role", "worker")
+    is_admin = database.is_admin_or_superadmin(user_id)
+
+    if role not in REPORT_ALLOWED_ROLES and not is_admin:
+        txt = (
+            "⚠️ <b>Ushbu bo'lim faqat Sex boshlig'i, Injener, Sifat nazorati hamda Rahbariyat uchun mo'ljallangan!</b>\n"
+            "<i>Masterlar, brigadirlar va ishchilar uchun oylik hisobotlarni yuklab olish taqiqlangan.</i>"
+            if lang == 'uz' else
+            "⚠️ <b>Этот раздел доступен только для Начальников цехов, Инженеров, Контроля качества и Руководства!</b>\n"
+            "<i>Мастерам, бригадирам и рабочим скачивание ежемесячных отчетов запрещено.</i>"
+        )
+        await update.message.reply_html(txt)
+        return
+
+    months = database.get_available_report_months()
+    keyboard = []
+
+    for m in months:
+        lbl = m["label_uz"] if lang == 'uz' else m["label_ru"]
+        btn_text = f"📅 {lbl} ({m['count']} test)"
+        keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"rpt_m_{m['code']}")])
+
+    all_lbl = "📑 Barcha vaqt bo'yicha" if lang == 'uz' else "📑 За всё время"
+    keyboard.append([InlineKeyboardButton(all_lbl, callback_data="rpt_m_all")])
+
+    title = (
+        "📅 <b>OYLIK HISOBOTLAR VA ARXIV</b>\n\n"
+        "Kerakli oyni tanlang va xodimlarning BIQS test natijalarini <b>Excel (.xlsx)</b> fayl ko'rinishida yuklab oling:"
+        if lang == 'uz' else
+        "📅 <b>ЕЖЕМЕСЯЧНЫЕ ОТЧЕТЫ И АРХИВ</b>\n\n"
+        "Выберите интересующий месяц для просмотра статистики и скачивания полного отчета в формате <b>Excel (.xlsx)</b>:"
+    )
+
+    await update.message.reply_html(title, reply_markup=InlineKeyboardMarkup(keyboard))
+
+
+async def report_month_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    user_id = query.from_user.id
+    db_user = database.get_user(user_id)
+    lang = db_user.get("language", "ru") if db_user else "ru"
+    role = db_user.get("role", "worker") if db_user else "worker"
+    is_admin = database.is_admin_or_superadmin(user_id)
+
+    if role not in REPORT_ALLOWED_ROLES and not is_admin:
+        await query.message.reply_text("⚠️ Доступ запрещен.")
+        return
+
+    data = query.data
+    if data == "rpt_back":
+        months = database.get_available_report_months()
+        keyboard = []
+        for m in months:
+            lbl = m["label_uz"] if lang == 'uz' else m["label_ru"]
+            btn_text = f"📅 {lbl} ({m['count']} test)"
+            keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"rpt_m_{m['code']}")])
+        all_lbl = "📑 Barcha vaqt bo'yicha" if lang == 'uz' else "📑 За всё время"
+        keyboard.append([InlineKeyboardButton(all_lbl, callback_data="rpt_m_all")])
+
+        title = (
+            "📅 <b>OYLIK HISOBOTLAR VA ARXIV</b>\n\n"
+            "Kerakli oyni tanlang:"
+            if lang == 'uz' else
+            "📅 <b>ЕЖЕМЕСЯЧНЫЕ ОТЧЕТЫ И АРХИВ</b>\n\n"
+            "Выберите интересующий месяц:"
+        )
+        await query.message.edit_text(title, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+        return
+
+    month_code = data.replace("rpt_m_", "")
+    results = database.get_monthly_test_results(month_code=month_code)
+
+    if month_code == "all":
+        month_title = "Barcha vaqt bo'yicha" if lang == 'uz' else "За всё время"
+    else:
+        parts = month_code.split("-")
+        if len(parts) == 2:
+            year, m_num = parts[0], parts[1]
+            if lang == 'uz':
+                month_title = f"{database.MONTH_NAMES_UZ.get(m_num, m_num)} {year}"
+            else:
+                month_title = f"{database.MONTH_NAMES_RU.get(m_num, m_num)} {year}"
+        else:
+            month_title = month_code
+
+    total_tested = len([r for r in results if r["tests_completed"] > 0])
+    experts = len([r for r in results if r["best_score"] >= 80])
+    failed = total_tested - experts
+    avg_score = round(sum(r["avg_score"] for r in results) / max(len(results), 1), 1) if results else 0
+
+    if lang == 'uz':
+        msg = (
+            f"📅 <b>OYLIK HISOBOT — {month_title}</b>\n"
+            f"🏭 СП Уз Тонг Хонг Ко\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"👥 Test topshirgan xodimlar: <b>{total_tested}</b> ta\n"
+            f"🟢 O'tganlar (80%+): <b>{experts}</b> ta\n"
+            f"🔴 O'tmaganlar (<80%): <b>{failed}</b> ta\n"
+            f"📈 O'rtacha ko'rsatkich: <b>{avg_score}%</b>\n\n"
+            f"📥 <i>Faylni yuklab olish uchun quyidagi tugmalardan birini bosing:</i>"
+        )
+        keyboard = [
+            [InlineKeyboardButton("📥 Excel hisobotni yuklab olish (.xlsx)", callback_data=f"rpt_dl_xlsx_{month_code}")],
+            [InlineKeyboardButton("📄 CSV hisobotni yuklab olish (.csv)", callback_data=f"rpt_dl_csv_{month_code}")],
+            [InlineKeyboardButton("🔙 Oylarga qaytish", callback_data="rpt_back")]
+        ]
+    else:
+        msg = (
+            f"📅 <b>ЕЖЕМЕСЯЧНЫЙ ОТЧЕТ — {month_title}</b>\n"
+            f"🏭 СП Уз Тонг Хонг Ко\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"👥 Сотрудников, прошедших тест: <b>{total_tested}</b>\n"
+            f"🟢 Успешно сдали (80%+): <b>{experts}</b>\n"
+            f"🔴 Не сдали (<80%): <b>{failed}</b>\n"
+            f"📈 Средний балл по предприятию: <b>{avg_score}%</b>\n\n"
+            f"📥 <i>Для скачивания полного отчета нажмите одну из кнопок ниже:</i>"
+        )
+        keyboard = [
+            [InlineKeyboardButton("📥 Скачать Excel отчет (.xlsx)", callback_data=f"rpt_dl_xlsx_{month_code}")],
+            [InlineKeyboardButton("📄 Скачать CSV отчет (.csv)", callback_data=f"rpt_dl_csv_{month_code}")],
+            [InlineKeyboardButton("🔙 Назад к выбору месяца", callback_data="rpt_back")]
+        ]
+
+    await query.message.edit_text(msg, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+
+async def report_download_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    user_id = query.from_user.id
+    db_user = database.get_user(user_id)
+    lang = db_user.get("language", "ru") if db_user else "ru"
+    role = db_user.get("role", "worker") if db_user else "worker"
+    is_admin = database.is_admin_or_superadmin(user_id)
+
+    if role not in REPORT_ALLOWED_ROLES and not is_admin:
+        await query.message.reply_text("⚠️ Доступ запрещен.")
+        return
+
+    data = query.data
+    parts = data.split("_")
+    file_format = parts[2]
+    month_code = "_".join(parts[3:])
+
+    await query.message.reply_text("⏳ Fayl tayyorlanmoqda... / Формирование файла отчета...")
+
+    try:
+        filepath = database.generate_monthly_report_file(month_code=month_code, file_format=file_format)
+        caption_text = (
+            f"📑 <b>BIQS Ежемесячный отчет ({month_code})</b>\n"
+            f"🏭 СП Уз Тонг Хонг Ко"
+        )
+
+        with open(filepath, "rb") as f:
+            await context.bot.send_document(
+                chat_id=user_id,
+                document=f,
+                caption=caption_text,
+                parse_mode="HTML"
+            )
+    except Exception as e:
+        logger.error(f"Report generation error: {e}")
+        await query.message.reply_text(f"❌ Ошибка при создании файла: {e}")
+
 
 
 # My Management Handler — workers see their bosses (NO admin/superadmin shown)
@@ -1147,11 +1332,17 @@ def create_bot_app(webhook_mode: bool = False):
     application.add_handler(CallbackQueryHandler(admin_attack_summary, pattern="^admin_attack_summary$"))
     application.add_handler(CallbackQueryHandler(admin_attack_detailed, pattern="^admin_attack_detailed$"))
 
+    # Monthly Report Callbacks
+    application.add_handler(CallbackQueryHandler(report_month_callback, pattern="^rpt_m_"))
+    application.add_handler(CallbackQueryHandler(report_month_callback, pattern="^rpt_back$"))
+    application.add_handler(CallbackQueryHandler(report_download_callback, pattern="^rpt_dl_"))
+
     application.add_handler(MessageHandler(filters.Regex("^(🚀 Test va o'quv platformasi|🚀 Платформа обучения|🚀 BIQS Mini App-ni ochish|🚀 Открыть BIQS Mini App)$"), start_command))
     application.add_handler(MessageHandler(filters.Regex("^(📊 Mening statistikam|📊 Моя статистика)$"), show_stats_handler))
     application.add_handler(MessageHandler(filters.Regex("^(👥 Mening jamoam .xodimlar.|👥 Моя команда .сотрудники.)$"), my_team_handler))
     application.add_handler(MessageHandler(filters.Regex("^(🏢 Mening rahbarlarim|🏢 Моё руководство)$"), my_management_handler))
     application.add_handler(MessageHandler(filters.Regex("^(👥 Mening sexim .Xodimlarim.|👥 Мой цех .Сотрудники.)$"), my_team_handler))
+    application.add_handler(MessageHandler(filters.Regex("^(📅 Oylik hisobotlar .Excel.|📅 Ежемесячные отчеты .Excel.|📅 Oylik hisobotlar|📅 Ежемесячные отчеты)$"), monthly_reports_handler))
     application.add_handler(MessageHandler(filters.Regex("^(⚙️ Admin paneli|⚙️ Панель Администратора)$"), remove_old_admin_btn_handler))
     application.add_handler(MessageHandler(filters.Regex("^(👨‍💼 Создатель|👨‍💼 Yaratuvchi|👨‍💼 Asoschi)$"), founder_handler))
     application.add_handler(MessageHandler(filters.Regex("^(🆘 Техподдержка|🆘 Texnik yordam)$"), support_handler))
@@ -1179,12 +1370,15 @@ def create_bot_app(webhook_mode: bool = False):
     application.add_handler(CommandHandler("stats", show_stats_handler))
     application.add_handler(CommandHandler("deleteuser", deleteuser_command))
     application.add_handler(CommandHandler("myteam", my_team_handler))
+    application.add_handler(CommandHandler("reports", monthly_reports_handler))
+    application.add_handler(CommandHandler("monthly", monthly_reports_handler))
     application.add_handler(CommandHandler("sectors", sectors_stats_handler))
     application.add_handler(CommandHandler("lines", sectors_stats_handler))
     application.add_handler(CommandHandler("addbanned", addbanned_command))
     application.add_handler(CommandHandler("bannedlist", bannedlist_command))
     application.add_handler(CommandHandler("delbanned", delbanned_command))
     application.add_handler(CommandHandler("update_kb", update_keyboards_command))
+
 
 
 

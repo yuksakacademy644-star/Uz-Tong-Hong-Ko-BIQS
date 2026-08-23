@@ -3,3 +3,5 @@ __pycache__/
 cloudflared.exe
 *.db
 .env
+reports/
+

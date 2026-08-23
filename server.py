@@ -292,6 +292,43 @@ async def get_sector_stats_route(user_telegram_id: Optional[int] = None):
         return []
 
 
+# ─────────────────────────────────────────────
+# Monthly Reports & Historical Archives API
+# ─────────────────────────────────────────────
+REPORT_ALLOWED_ROLES = {'superadmin', 'admin', 'director', 'quality', 'engineer', 'nachalnik'}
+
+@app.get("/api/reports/months")
+async def get_report_months_route(telegram_id: int = Query(...)):
+    user = database.get_user(telegram_id)
+    is_admin = database.is_admin_or_superadmin(telegram_id)
+    role = user.get("role", "worker") if user else "worker"
+    if role not in REPORT_ALLOWED_ROLES and not is_admin:
+        raise HTTPException(status_code=403, detail="Access denied")
+    return database.get_available_report_months()
+
+@app.get("/api/reports/monthly")
+async def get_monthly_report_route(telegram_id: int = Query(...), month: str = Query("current")):
+    user = database.get_user(telegram_id)
+    is_admin = database.is_admin_or_superadmin(telegram_id)
+    role = user.get("role", "worker") if user else "worker"
+    if role not in REPORT_ALLOWED_ROLES and not is_admin:
+        raise HTTPException(status_code=403, detail="Access denied")
+    return database.get_monthly_test_results(month_code=month)
+
+@app.get("/api/reports/export")
+async def export_report_file_route(telegram_id: int = Query(...), month: str = Query("current"), format: str = Query("xlsx")):
+    user = database.get_user(telegram_id)
+    is_admin = database.is_admin_or_superadmin(telegram_id)
+    role = user.get("role", "worker") if user else "worker"
+    if role not in REPORT_ALLOWED_ROLES and not is_admin:
+        raise HTTPException(status_code=403, detail="Access denied")
+    filepath = database.generate_monthly_report_file(month_code=month, file_format=format)
+    filename = os.path.basename(filepath)
+    media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if format == "xlsx" else "text/csv"
+    return FileResponse(filepath, media_type=media_type, filename=filename)
+
+
+
 # Admin API
 @app.get("/api/admin/codes")
 async def get_admin_codes():
