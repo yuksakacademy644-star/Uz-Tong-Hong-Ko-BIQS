@@ -14,16 +14,27 @@ from telegram import Update
 import config
 import database
 
-# ─────────────────────────────────────────────
-# Bot app reference (only used in webhook mode)
-# ─────────────────────────────────────────────
 _bot_application = None
+
+async def keep_awake_loop(target_url: str):
+    import asyncio
+    import httpx
+    print(f"[KEEP-AWAKE] 🚀 Self-ping background task active for {target_url}")
+    await asyncio.sleep(30)
+    while True:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.get(f"{target_url}/health")
+                print(f"[KEEP-AWAKE] ⏰ Self-ping sent to {target_url}/health -> status {res.status_code}")
+        except Exception as e:
+            print(f"[KEEP-AWAKE] Ping error: {e}")
+        await asyncio.sleep(600)  # Ping every 10 minutes (600s)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     FastAPI lifespan:
-    - Render (production) → webhook mode: bot lives inside FastAPI, instant response
+    - Render (production) → webhook mode: bot lives inside FastAPI, instant response + keep-awake self-ping
     - Local → polling mode: bot runs separately in run.py, lifespan does nothing
     """
     global _bot_application
@@ -33,7 +44,7 @@ async def lifespan(app: FastAPI):
     if not render_url and getattr(config, "PRODUCTION_URL", ""):
         render_url = config.PRODUCTION_URL.rstrip("/")
 
-    is_render  = bool(os.environ.get("RENDER")) or bool(os.environ.get("RENDER_SERVICE_ID"))
+    is_render = bool(os.environ.get("RENDER")) or bool(os.environ.get("RENDER_SERVICE_ID"))
 
     if (is_render or render_url) and render_url.startswith("https://"):
         # ── PRODUCTION: Webhook mode ──────────────────────────────────────────
@@ -54,6 +65,10 @@ async def lifespan(app: FastAPI):
             print(f"[BOT] ⚡ Webhook mode ACTIVE → {webhook_url} (result: {res})")
         except Exception as e:
             print(f"[BOT ERROR] Failed to set webhook to {webhook_url}: {e}")
+
+        # Launch 24/7 background keep-awake self-ping so Render free tier NEVER sleeps
+        import asyncio
+        asyncio.create_task(keep_awake_loop(render_url))
     else:
         # ── LOCAL: Polling mode (bot started by run.py) ───────────────────────
         print("[BOT] Local mode — polling handled by run.py")
@@ -70,8 +85,6 @@ async def lifespan(app: FastAPI):
             print(f"[BOT SHUTDOWN] {e}")
 
 
-# ─────────────────────────────────────────────
-# FastAPI app
 # ─────────────────────────────────────────────
 app = FastAPI(title="Uz Tong Hong Ko BIQS Mini App Server", lifespan=lifespan)
 
