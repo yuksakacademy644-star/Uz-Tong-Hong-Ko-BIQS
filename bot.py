@@ -1,4 +1,5 @@
 import asyncio
+import math
 import logging
 from datetime import datetime
 from telegram import (
@@ -731,10 +732,11 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     keyboard = [
         [
-            InlineKeyboardButton("🔑 Создать код", callback_data="admin_create_code_prompt"),
-            InlineKeyboardButton("👔 Управление", callback_data="admin_manage_admins")
+            InlineKeyboardButton("👥 Управление сотрудниками", callback_data="admin_workers_page_0"),
+            InlineKeyboardButton("🔑 Создать код", callback_data="admin_create_code_prompt")
         ],
         [
+            InlineKeyboardButton("👔 Администраторы", callback_data="admin_manage_admins"),
             InlineKeyboardButton("🛡 Атаки", callback_data="admin_attack_summary")
         ],
         [
@@ -1041,24 +1043,262 @@ async def admin_manage_admins(update: Update, context: ContextTypes.DEFAULT_TYPE
     msg += "➕ Yangi admin tayinlash uchun: <code>/addadmin ID_YOKI_USERNAME huquqlar</code>"
     await query.message.reply_html(msg)
 
-async def admin_view_workers(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def admin_workers_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    msg_target = query.message if query else update.effective_message
     if query:
         await query.answer()
-    workers = database.get_all_workers_admin()
-    if not workers:
-        await msg_target.reply_text("Сотрудники пока не зарегистрированы.")
+
+    user_id = query.from_user.id if query else update.effective_user.id
+    msg_target = query.message if query else update.effective_message
+
+    if not database.is_admin_or_superadmin(user_id) and not database.check_user_permission(user_id, "view_workers"):
+        await msg_target.reply_text("⚠️ Доступ запрещен.")
         return
 
-    msg = "📋 <b>СПИСОК СОТРУДНИКОВ И РЕЗУЛЬТАТЫ:</b>\n\n"
-    for idx, w in enumerate(workers, 1):
-        is_top = w["best_score"] >= 80
-        badge = " 🌟 <b>ЭКСПЕРТ BIQS</b>" if is_top else ""
-        msg += f"{idx}. <b>{w['full_name']}</b> ({w.get('shop_name') or 'Sex'}){badge}\n"
-        msg += f"   🎯 Natija: <b>{round(w['best_score'])}%</b> | {w['tests_completed']} попыток\n\n"
+    data = query.data if query else "admin_workers_page_0"
+    page = int(data.split("_")[-1]) if "_" in data and data.split("_")[-1].isdigit() else 0
 
-    await msg_target.reply_html(msg)
+    workers = database.get_all_workers_admin()
+    if not workers:
+        text = (
+            "📋 <b>УПРАВЛЕНИЕ СОТРУДНИКАМИ</b>\n\n"
+            "<i>Зарегистрированных сотрудников пока нет.</i>"
+        )
+        reply_kb = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад в админ-панель", callback_data="admin_back_to_panel")]])
+        if query:
+            await query.message.edit_text(text, parse_mode="HTML", reply_markup=reply_kb)
+        else:
+            await msg_target.reply_html(text, reply_markup=reply_kb)
+        return
+
+    PER_PAGE = 8
+    total_workers = len(workers)
+    total_pages = math.ceil(total_workers / PER_PAGE)
+    if page >= total_pages:
+        page = total_pages - 1
+    if page < 0:
+        page = 0
+
+    start_idx = page * PER_PAGE
+    page_workers = workers[start_idx : start_idx + PER_PAGE]
+
+    keyboard = []
+    for w in page_workers:
+        full_name = w.get("full_name") or "Без имени"
+        shop_name = w.get("shop_name") or "—"
+        tg_id = w["telegram_id"]
+        score = round(w.get("best_score", 0))
+        star = " 🌟" if score >= 80 else ""
+        btn_text = f"👤 {full_name} ({shop_name}){star}"
+        keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"admin_view_user_{tg_id}_{page}")])
+
+    nav_row = []
+    if page > 0:
+        nav_row.append(InlineKeyboardButton("⬅️ Назад", callback_data=f"admin_workers_page_{page - 1}"))
+    nav_row.append(InlineKeyboardButton(f"📄 {page + 1}/{total_pages}", callback_data="ignore"))
+    if page < total_pages - 1:
+        nav_row.append(InlineKeyboardButton("Вперед ➡️", callback_data=f"admin_workers_page_{page + 1}"))
+
+    if nav_row:
+        keyboard.append(nav_row)
+
+    keyboard.append([InlineKeyboardButton("🔙 Назад в админ-панель", callback_data="admin_back_to_panel")])
+
+    text = (
+        f"👥 <b>УПРАВЛЕНИЕ СОТРУДНИКАМИ</b>\n"
+        f"<i>Всего в базе: <b>{total_workers}</b> чел.</i>\n\n"
+        f"👇 Нажмите на сотрудника, чтобы открыть полный профиль, контакты и управление (включая удаление):"
+    )
+    if query:
+        await query.message.edit_text(text, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+    else:
+        await msg_target.reply_html(text, reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def admin_view_workers(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await admin_workers_page_callback(update, context)
+
+async def admin_back_to_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    if not database.is_admin_or_superadmin(user_id):
+        return
+
+    codes = database.get_all_invite_codes()
+    workers = database.get_all_workers_admin()
+    experts = [w for w in workers if w["best_score"] >= 80]
+    management = database.get_all_management()
+    nachalniki = [m for m in management if m['role'] == 'nachalnik']
+    masters = [m for m in management if m['role'] == 'master']
+    brigadiry = [m for m in management if m['role'] == 'brigadir']
+    engineers = [m for m in management if m['role'] == 'engineer']
+    qualities = [m for m in management if m['role'] == 'quality']
+    directors = [m for m in management if m['role'] == 'director']
+
+    text = (
+        f"⚙️ <b>ПАНЕЛЬ АДМИНИСТРАТОРА — УЗ ТОНГ ХОНГ КО</b>\n\n"
+        f"👥 <b>Всего сотрудников:</b> {len(workers)}\n"
+        f"🌟 <b>Экспертов BIQS (80%+):</b> {len(experts)}\n"
+        f"🔑 <b>Кодов приглашения:</b> {len(codes)}\n\n"
+        f"🏭 <b>Нач. цеха:</b> {len(nachalniki)} | "
+        f"👨‍🔧 <b>Мастеров:</b> {len(masters)} | "
+        f"👷 <b>Бригадиров:</b> {len(brigadiry)}\n"
+        f"🛠️ <b>Инженеров:</b> {len(engineers)} | "
+        f"🛡️ <b>Качество:</b> {len(qualities)} | "
+        f"👑 <b>Руководство:</b> {len(directors)}\n\n"
+        f"📌 <b>Команды управления:</b>\n"
+        f"• <code>/newcode KOD role shop</code> — Создать код\n"
+        f"• <code>/deleteuser TG_ID</code> — Удалить сотрудника"
+    )
+    keyboard = [
+        [
+            InlineKeyboardButton("👥 Управление сотрудниками", callback_data="admin_workers_page_0"),
+            InlineKeyboardButton("🔑 Создать код", callback_data="admin_create_code_prompt")
+        ],
+        [
+            InlineKeyboardButton("👔 Администраторы", callback_data="admin_manage_admins"),
+            InlineKeyboardButton("🛡 Атаки", callback_data="admin_attack_summary")
+        ],
+        [
+            InlineKeyboardButton("📢 Объявления", callback_data="admin_broadcast_prompt")
+        ]
+    ]
+    await query.message.edit_text(text, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def admin_view_user_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    user_id = query.from_user.id
+    if not database.is_admin_or_superadmin(user_id) and not database.check_user_permission(user_id, "view_workers"):
+        await query.message.reply_text("⚠️ Доступ запрещен.")
+        return
+
+    parts = query.data.split("_")
+    target_id = int(parts[3])
+    page = int(parts[4]) if len(parts) > 4 else 0
+
+    target_user = database.get_user(target_id)
+    if not target_user:
+        await query.message.reply_text("❌ Пользователь не найден в базе данных.")
+        return
+
+    stats = database.get_user_stats(target_id)
+    best_score = round(stats.get("best_score") or 0)
+    avg_score = round(stats.get("avg_score") or 0)
+    tests_count = stats.get("tests_count", 0)
+    is_expert = best_score >= 80
+
+    role_key = target_user.get("role", "worker")
+    role_label = ROLE_LABELS.get(role_key, ("👤 Рабочий", "👤 Ishchi"))[0]
+
+    username_str = f"@{target_user.get('username')}" if target_user.get('username') else "<i>отсутствует</i>"
+    phone_str = target_user.get("phone") or "<i>не указан</i>"
+    shop_str = target_user.get("shop_name") or "<i>не указан</i>"
+    invite_str = target_user.get("invite_code") or "—"
+    reg_str = str(target_user.get("registered_at", "—"))[:19]
+
+    status_str = "🌟 <b>Эксперт BIQS (80%+)</b>" if is_expert else "💼 <b>Активный сотрудник</b>"
+
+    import json as _json
+    workers_admin = database.get_all_workers_admin()
+    target_w = next((w for w in workers_admin if w["telegram_id"] == target_id), None)
+    mistakes_str = "—"
+    if target_w and target_w.get("latest_mistakes"):
+        try:
+            ml = _json.loads(target_w["latest_mistakes"])
+            mistakes_str = ", ".join(ml) if isinstance(ml, list) else str(target_w["latest_mistakes"])
+        except:
+            mistakes_str = str(target_w["latest_mistakes"])
+
+    profile_text = (
+        f"👤 <b>ПРОФИЛЬ СОТРУДНИКА / XODIM PROFILI</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"👤 <b>ФИО:</b> <b>{target_user.get('full_name', '—')}</b>\n"
+        f"🆔 <b>Telegram ID:</b> <code>{target_id}</code>\n"
+        f"📱 <b>Username:</b> {username_str}\n"
+        f"📞 <b>Телефон:</b> {phone_str}\n"
+        f"🏭 <b>Участок / Цех:</b> <b>{shop_str}</b>\n"
+        f"🎖 <b>Должность:</b> {role_label}\n"
+        f"🔑 <b>Код входа:</b> <code>{invite_str}</code>\n"
+        f"📅 <b>Регистрация:</b> <i>{reg_str}</i>\n\n"
+        f"📊 <b>СТАТИСТИКА ТЕСТИРОВАНИЯ:</b>\n"
+        f"🎯 <b>Лучший результат:</b> <b>{best_score}%</b>\n"
+        f"📈 <b>Средний балл:</b> {avg_score}%\n"
+        f"📝 <b>Пройдено тестов:</b> {tests_count}\n"
+        f"🎖 <b>Статус:</b> {status_str}\n"
+        f"⚠️ <b>Последние ошибки:</b> <i>{mistakes_str}</i>"
+    )
+
+    keyboard = [
+        [InlineKeyboardButton("❌ Удалить этого пользователя", callback_data=f"admin_del_user_ask_{target_id}_{page}")],
+        [InlineKeyboardButton("🔙 Назад к списку", callback_data=f"admin_workers_page_{page}")]
+    ]
+
+    await query.message.edit_text(profile_text, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def admin_del_user_ask_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    user_id = query.from_user.id
+    if not database.is_admin_or_superadmin(user_id) and not database.check_user_permission(user_id, "view_workers"):
+        await query.message.reply_text("⚠️ Доступ запрещен.")
+        return
+
+    parts = query.data.split("_")
+    target_id = int(parts[4])
+    page = int(parts[5]) if len(parts) > 5 else 0
+
+    target_user = database.get_user(target_id)
+    if not target_user:
+        await query.message.reply_text("❌ Пользователь не найден.")
+        return
+
+    confirm_text = (
+        f"⚠️ <b>ПОДТВЕРЖДЕНИЕ УДАЛЕНИЯ / O'CHIRISHNI TASDIQLASH</b>\n\n"
+        f"Вы действительно хотите полностью удалить пользователя:\n"
+        f"👤 <b>{target_user.get('full_name')}</b> (ID: <code>{target_id}</code>)\n"
+        f"🏭 Цех: <b>{target_user.get('shop_name', '—')}</b>\n\n"
+        f"❗️ <i>Пользователь и все его результаты тестов будут безвозвратно удалены из базы!</i>"
+    )
+
+    keyboard = [
+        [InlineKeyboardButton("🔴 ДА, ТОЧНО УДАЛИТЬ", callback_data=f"admin_del_user_confirm_{target_id}_{page}")],
+        [InlineKeyboardButton("🟢 Отмена", callback_data=f"admin_view_user_{target_id}_{page}")]
+    ]
+
+    await query.message.edit_text(confirm_text, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def admin_del_user_confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    user_id = query.from_user.id
+    if not database.is_admin_or_superadmin(user_id) and not database.check_user_permission(user_id, "view_workers"):
+        await query.message.reply_text("⚠️ Доступ запрещен.")
+        return
+
+    parts = query.data.split("_")
+    target_id = int(parts[4])
+    page = int(parts[5]) if len(parts) > 5 else 0
+
+    import config as _cfg
+    if target_id in _cfg.ADMIN_IDS:
+        await query.answer("🚫 Нельзя удалить главного суперадминистратора!", show_alert=True)
+        return
+
+    target_user = database.get_user(target_id)
+    name = target_user.get("full_name", str(target_id)) if target_user else str(target_id)
+
+    deleted = database.delete_user(target_id)
+    if deleted:
+        await query.answer(f"✅ Пользователь {name} удален из базы!", show_alert=True)
+    else:
+        await query.answer("❌ Пользователь не найден или уже был удален.", show_alert=True)
+
+    query.data = f"admin_workers_page_{page}"
+    await admin_workers_page_callback(update, context)
 
 
 async def admin_attack_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1329,6 +1569,11 @@ def create_bot_app(webhook_mode: bool = False):
     application.add_handler(CallbackQueryHandler(admin_create_code_prompt, pattern="^admin_create_code_prompt$"))
     application.add_handler(CallbackQueryHandler(admin_manage_admins, pattern="^admin_manage_admins$"))
     application.add_handler(CallbackQueryHandler(admin_view_workers, pattern="^admin_view_workers$"))
+    application.add_handler(CallbackQueryHandler(admin_workers_page_callback, pattern="^admin_workers_page_"))
+    application.add_handler(CallbackQueryHandler(admin_view_user_callback, pattern="^admin_view_user_"))
+    application.add_handler(CallbackQueryHandler(admin_del_user_ask_callback, pattern="^admin_del_user_ask_"))
+    application.add_handler(CallbackQueryHandler(admin_del_user_confirm_callback, pattern="^admin_del_user_confirm_"))
+    application.add_handler(CallbackQueryHandler(admin_back_to_panel_callback, pattern="^admin_back_to_panel$"))
     application.add_handler(CallbackQueryHandler(admin_attack_summary, pattern="^admin_attack_summary$"))
     application.add_handler(CallbackQueryHandler(admin_attack_detailed, pattern="^admin_attack_detailed$"))
 
