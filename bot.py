@@ -532,7 +532,7 @@ async def report_month_callback(update: Update, context: ContextTypes.DEFAULT_TY
             f"━━━━━━━━━━━━━━━━━━━━\n\n"
             f"👥 Test topshirgan xodimlar: <b>{total_tested}</b> ta\n"
             f"🟢 O'tganlar (80%+): <b>{experts}</b> ta\n"
-            f"🔴 O'tmaganlar (<80%): <b>{failed}</b> ta\n"
+            f"🔴 O'tmaganlar (&lt;80%): <b>{failed}</b> ta\n"
             f"📈 O'rtacha ko'rsatkich: <b>{avg_score}%</b>\n\n"
             f"📥 <i>Faylni yuklab olish uchun quyidagi tugmalardan birini bosing:</i>"
         )
@@ -548,7 +548,7 @@ async def report_month_callback(update: Update, context: ContextTypes.DEFAULT_TY
             f"━━━━━━━━━━━━━━━━━━━━\n\n"
             f"👥 Сотрудников, прошедших тест: <b>{total_tested}</b>\n"
             f"🟢 Успешно сдали (80%+): <b>{experts}</b>\n"
-            f"🔴 Не сдали (<80%): <b>{failed}</b>\n"
+            f"🔴 Не сдали (&lt;80%): <b>{failed}</b>\n"
             f"📈 Средний балл по предприятию: <b>{avg_score}%</b>\n\n"
             f"📥 <i>Для скачивания полного отчета нажмите одну из кнопок ниже:</i>"
         )
