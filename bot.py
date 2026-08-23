@@ -1388,29 +1388,46 @@ async def notify_admins_about_security_violation(bot, user_id: int, text: str, v
     username = f"@{user.get('username')}" if user.get("username") else "отсутствует"
     shop_name = user.get("shop_name", "Не указан")
     master_name = user.get("master_name", "Не указан")
-    role = user.get("role", "worker")
-    phone = user.get("phone", "—")
+    role_key = user.get("role", "worker")
+    role_label = ROLE_LABELS.get(role_key, ("👤 Рабочий", "👤 Ishchi"))[0]
+    phone = user.get("phone") or "не указан"
+    invite_code = user.get("invite_code") or "—"
+    reg_at = str(user.get("registered_at", "—"))[:19]
     time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    stats = database.get_user_stats(user_id)
+    best_score = round(stats.get("best_score") or 0)
+    avg_score = round(stats.get("avg_score") or 0)
+    tests_count = stats.get("tests_count", 0)
+    status_badge = "🌟 Эксперт BIQS (80%+)" if best_score >= 80 else "💼 Активный сотрудник"
 
     log_detail = f"[{violation_type}] Промпт: '{text}' (совпадение: '{matched_pattern}')"
     database.log_attack(user_id, log_detail)
 
     alert_text = (
-        "🚨 <b>ВНИМАНИЕ! ПОПЫТКА НЕСАНКЦИОНИРОВАННОГО ДОСТУПА / НАРУШЕНИЯ</b> 🚨\n\n"
-        "⚠️ <b>Обнаружено нарушение правил безопасности бота!</b>\n\n"
-        f"🛑 <b>Тип нарушения:</b> <code>{violation_type}</code>\n"
-        f"🎯 <b>Совпадение:</b> <code>{matched_pattern}</code>\n\n"
+        "🚨 <b>ВНИМАНИЕ! ПОПЫТКА НЕСАНКЦИОНИРОВАННОГО ДОСТУПА / ВЗЛОМА</b> 🚨\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "⚠️ <b>Обнаружена попытка взлома или нарушение правил безопасности бота!</b>\n\n"
+        f"🛑 <b>Тип нарушения/атаки:</b> <code>{violation_type}</code>\n"
+        f"🎯 <b>Паттерн совпадения:</b> <code>{matched_pattern}</code>\n\n"
         f"📝 <b>Текст сообщения:</b>\n<code>{text[:500]}</code>\n\n"
-        "👤 <b>ПРОФИЛЬ НАРУШИТЕЛЯ:</b>\n"
-        f"• <b>ФИО:</b> {full_name}\n"
-        f"• <b>Username:</b> {username}\n"
+        "👤 <b>ПОЛНОЕ ДОСЬЕ НАРУШИТЕЛЯ:</b>\n"
+        f"• <b>ФИО:</b> <b>{full_name}</b>\n"
         f"• <b>TG ID:</b> <code>{user_id}</code>\n"
-        f"• <b>Цех / Участок:</b> {shop_name}\n"
+        f"• <b>Username:</b> {username}\n"
+        f"• <b>Телефон:</b> <code>{phone}</code>\n"
+        f"• <b>Цех / Участок:</b> <b>{shop_name}</b>\n"
         f"• <b>Мастер / Руководитель:</b> {master_name}\n"
-        f"• <b>Роль:</b> <code>{role}</code>\n"
-        f"• <b>Телефон:</b> {phone}\n"
-        f"🕒 <b>Время:</b> <code>{time_str}</code>\n\n"
-        "<i>⚠️ Пользователю отправлено предупреждение. Нарушение зафиксировано в журнале атак.</i>"
+        f"• <b>Должность:</b> {role_label}\n"
+        f"• <b>Код приглашения:</b> <code>{invite_code}</code>\n"
+        f"• <b>Дата регистрации:</b> <i>{reg_at}</i>\n\n"
+        "📊 <b>ПОЛНАЯ СТАТИСТИКА ТЕСТИРОВАНИЯ:</b>\n"
+        f"• <b>Лучший результат:</b> <b>{best_score}%</b>\n"
+        f"• <b>Средний балл:</b> {avg_score}%\n"
+        f"• <b>Пройдено тестов:</b> {tests_count}\n"
+        f"• <b>Статус:</b> {status_badge}\n"
+        f"🕒 <b>Время атаки:</b> <code>{time_str}</code>\n\n"
+        "<i>⚠️ Нарушителю отправлено предупреждение. Нарушение зафиксировано в журнале атак.</i>"
     )
 
     admins = database.get_all_admins()
