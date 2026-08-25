@@ -110,18 +110,56 @@ const i18n = {
 };
 
 // Initialize App
-document.addEventListener("DOMContentLoaded", () => {
-    // Extract Telegram User Data
+function extractTelegramUser() {
+    // 1. Direct Telegram WebApp SDK user object
+    if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+        return tg.initDataUnsafe.user.id;
+    }
+
+    // 2. Raw initData query string parsing
+    if (tg && tg.initData) {
+        try {
+            const params = new URLSearchParams(tg.initData);
+            const userStr = params.get('user');
+            if (userStr) {
+                const u = JSON.parse(userStr);
+                if (u && u.id) return u.id;
+            }
+        } catch (e) {
+            console.warn("Could not parse user from tg.initData", e);
+        }
+    }
+
+    // 3. URL Query Parameter fallback (?telegram_id=... or ?user_id=...)
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const queryId = urlParams.get('telegram_id') || urlParams.get('user_id') || urlParams.get('tgWebAppStartParam');
+        if (queryId && !isNaN(parseInt(queryId)) && parseInt(queryId) > 0) {
+            return parseInt(queryId);
+        }
+    } catch (e) {}
+
+    // 4. Localhost fallback for local dev
     const isLocalhost = window.location.hostname === 'localhost' || 
                         window.location.hostname === '127.0.0.1' || 
                         window.location.hostname.startsWith('192.168.');
-                        
-    if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
-        userTelegramId = tg.initDataUnsafe.user.id;
-    } else if (isLocalhost) {
-        userTelegramId = 5543183063; // Fallback to Admin ID ONLY for browser dev testing
-    } else {
-        userTelegramId = 0; // Force 0 on production if not inside Telegram
+    if (isLocalhost) {
+        return 5543183063;
+    }
+
+    return 0;
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+    userTelegramId = extractTelegramUser();
+
+    // If ID is not resolved yet, retry 3 times in 250ms intervals for slow SDK init
+    if (userTelegramId === 0) {
+        for (let i = 0; i < 3; i++) {
+            await new Promise(r => setTimeout(r, 250));
+            userTelegramId = extractTelegramUser();
+            if (userTelegramId !== 0) break;
+        }
     }
 
     initTabs();
@@ -145,7 +183,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (document.getElementById("addAdminForm")) {
         document.getElementById("addAdminForm").addEventListener("submit", handleAddAdmin);
     }
-
 });
 
 // Tab Navigation
