@@ -223,7 +223,17 @@ async def get_elements():
 
 # Quiz (random 10 questions)
 @app.get("/api/quiz")
-async def get_quiz():
+async def get_quiz(telegram_id: Optional[int] = Query(None)):
+    if telegram_id:
+        can_take, remaining = database.check_user_cooldown(telegram_id)
+        if not can_take:
+            mins = remaining // 60
+            secs = remaining % 60
+            time_str = f"{mins} min {secs} sec" if mins > 0 else f"{secs} sec"
+            raise HTTPException(
+                status_code=429,
+                detail=f"Cooldown active. Please wait {time_str} before retrying."
+            )
     questions = database.get_biqs_questions()
     random.shuffle(questions)
     return questions[:10]

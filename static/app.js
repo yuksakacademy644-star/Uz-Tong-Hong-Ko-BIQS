@@ -268,6 +268,21 @@ async function fetchUserInfo() {
                 }
             }
 
+            // Enable anti-copy protection for standard users, unlock ONLY for Superadmin
+            if (userInfo.is_admin || userInfo.role === 'superadmin') {
+                document.body.classList.add("allow-copy");
+            } else {
+                document.body.classList.remove("allow-copy");
+                document.addEventListener('contextmenu', e => e.preventDefault());
+                document.addEventListener('copy', e => e.preventDefault());
+                document.addEventListener('cut', e => e.preventDefault());
+                document.addEventListener('keydown', e => {
+                    if ((e.ctrlKey || e.metaKey) && ['c', 'v', 'x', 'u', 's', 'a', 'p'].includes(e.key.toLowerCase())) {
+                        e.preventDefault();
+                    }
+                });
+            }
+
             document.getElementById("userFullName").textContent = userInfo.full_name || "Сотрудник Уз Тонг Хонг Ко";
             document.getElementById("shopNameText").textContent = userInfo.shop_name || "Цех #1";
             document.getElementById("masterNameText").textContent = userInfo.phone || "-";
@@ -386,15 +401,35 @@ function filterElements(e) {
 // Fetch Quiz Questions
 async function fetchQuestions() {
     try {
-        const res = await fetch('/api/quiz');
-        quizQuestions = await res.json();
+        const res = await fetch(`/api/quiz?telegram_id=${userTelegramId}`);
+        if (res.status === 429) {
+            const data = await res.json();
+            return { error: 'cooldown', detail: data.detail };
+        }
+        if (res.ok) {
+            quizQuestions = await res.json();
+            return { ok: true };
+        }
     } catch (e) {
         console.error("Error fetching quiz questions", e);
     }
+    return { error: 'failed' };
 }
 
 // Interactive Quiz System
-function startQuiz() {
+async function startQuiz() {
+    const fetchRes = await fetchQuestions();
+    if (fetchRes && fetchRes.error === 'cooldown') {
+        const msgUz = "⚠️ Testdan o'tolmaganingiz sababli 5 daqiqalik tanaffus (kuldun) berildi!\n\n" + (fetchRes.detail || "Iltimos, ozgina kuting va qayta urinib ko'ring.");
+        const msgRu = "⚠️ В связи с несдачей теста установлен 5-минутный перерыв (кулдаун)!\n\n" + (fetchRes.detail || "Пожалуйста, подождите немного перед повторной попыткой.");
+        alert(currentLang === 'uz' ? msgUz : msgRu);
+        return;
+    }
+    if (!quizQuestions || quizQuestions.length === 0) {
+        alert(currentLang === 'uz' ? "Savollar yuklanmadi. Qayta urinib ko'ring." : "Не удалось загрузить вопросы. Попробуйте еще раз.");
+        return;
+    }
+
     currentQuestionIndex = 0;
     quizScore = 0;
     userAnswers = [];

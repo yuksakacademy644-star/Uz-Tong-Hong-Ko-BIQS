@@ -494,6 +494,51 @@ def save_test_result(telegram_id: int, score: int, total: int, percentage: float
     conn.commit()
     conn.close()
 
+def check_user_cooldown(telegram_id: int):
+    """
+    Checks if user failed their last test (<80%) and enforces a 5-minute (300s) retry cooldown.
+    Returns (can_take: bool, remaining_seconds: int).
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+    SELECT percentage, completed_at
+    FROM test_results
+    WHERE user_telegram_id = ?
+    ORDER BY completed_at DESC LIMIT 1
+    """, (telegram_id,))
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return True, 0
+
+    last_pct = row["percentage"]
+    if last_pct >= 80:
+        return True, 0
+
+    last_time_str = row["completed_at"]
+    if not last_time_str:
+        return True, 0
+
+    try:
+        if '.' in last_time_str:
+            last_dt = datetime.datetime.strptime(last_time_str.split('.')[0], "%Y-%m-%d %H:%M:%S")
+        else:
+            last_dt = datetime.datetime.strptime(last_time_str, "%Y-%m-%d %H:%M:%S")
+        
+        now = datetime.datetime.utcnow()
+        elapsed = (now - last_dt).total_seconds()
+        cooldown_period = 300  # 5 minutes
+
+        if elapsed < cooldown_period:
+            remaining = int(cooldown_period - elapsed)
+            return False, max(remaining, 1)
+    except Exception as e:
+        print(f"Error checking cooldown: {e}")
+
+    return True, 0
+
 def get_user_stats(telegram_id: int):
     conn = get_db()
     cursor = conn.cursor()
