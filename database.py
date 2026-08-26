@@ -1312,16 +1312,16 @@ def get_biqs_questions():
         "question_uz": "Nomuvofiq (brak) mahsulot aniqlanganda har bir ish joyida nima bo'lishi va nima qilinishi shart (BIQS-01)?",
         "question_ru": "Что должно быть на каждом рабочем месте при обнаружении дефектной продукции (BIQS-01)?",
         "options_uz": [
-            "Mahsulotni yashirib qo'yish",
+            "Mahsulotni smena oxirida saralab, yashil zonaga joylashtirish",
             "Maxsus qizil rangli idish (Red Tag), yorliq va mahsulotni ajratish",
-            "Keyingi operatsiyaga o'tkazib yuborish",
-            "Faqat smena oxirida aytish"
+            "Operatordan so'ramay turib Rework zonasiga o'tkazish",
+            "Mahsulotni nazorat daftarlariga yozib, liniyada qoldirish"
         ],
         "options_ru": [
-            "Спрятать деталь",
+            "Сортировка деталей в конце смены и размещение в Зеленой зоне",
             "Красная зона (Red Tag), ярлык и немедленная изоляция брака",
-            "Передать на следующую операцию",
-            "Сообщить только в конце смены"
+            "Передача детали на участок Rework без оформления бирки",
+            "Запись дефекта в журнал контроля с оставлением детали на линии"
         ],
         "correct": 1,
         "explanation_uz": "BIQS-01: Har bir ish joyida qizil idish va yorliq bo'lishi hamda nuqson darhol ajratilishi shart!",
@@ -1332,16 +1332,16 @@ def get_biqs_questions():
         "question_uz": "Ko'p pog'onali audit (LA - Layered Audit) bo'yicha haftalik hisobot kimga taqdim etiladi (BIQS-02)?",
         "question_ru": "Кому предоставляется еженедельный отчет по многоуровневому аудиту LA (BIQS-02)?",
         "options_uz": [
-            "Omborchiga",
-            "Yuqori rahbariyatga",
-            "Hech kimga",
-            "Qo'shni tsexga"
+            "Faqat smena ustasiga va uchastka brigadiriga",
+            "Yuqori rahbariyatga va sifat audit jamoasiga",
+            "Tashqi sertifikatlashtirish organiga har oyda",
+            "Ta'minotchilar bo'limiga va kirish nazoratiga"
         ],
         "options_ru": [
-            "Кладовщику",
-            "Высшему руководству завода",
-            "Никому",
-            "Соседнему цеху"
+            "Только мастеру смены и бригадиру участка",
+            "Высшему руководству завода и команде аудита",
+            "Ежемесячно в внешний орган сертификации",
+            "В отдел поставщиков и входного контроля"
         ],
         "correct": 1,
         "explanation_uz": "BIQS-02: LA monitoringi haftalik hisobot shaklida yuqori rahbariyatga taqdim etiladi.",
@@ -1352,16 +1352,16 @@ def get_biqs_questions():
         "question_uz": "PFMEA qachon qayta ko'rib chiqiladi va uning maqsadi nima (BIQS-03)?",
         "question_ru": "С какой целью проводится пересмотр PFMEA (BIQS-03)?",
         "options_uz": [
-            "Oylik maoshni hisoblash uchun",
-            "Xatarlar ballini (Risk Score) tushirish va choralarni belgilash",
-            "Xomashyo buyurtma qilish uchun",
-            "Bino tozaligini tekshirish uchun"
+            "Faqat yangi uskunalar sotib olish uchun smeta tuzish",
+            "Xatarlar ballini (Risk Score) tushirish va profilaktik choralarni belgilash",
+            "Braklar sonini oylik maosh jadvaliga bog'lash",
+            "Faqat iste'molchiga tayyor mahsulot yuborilgandan so'ng tahlil qilish"
         ],
         "options_ru": [
-            "Для расчета зарплаты",
-            "Для снижения балла риска и назначения корректирующих мер",
-            "Для заказа сырья",
-            "Для проверки чистоты"
+            "Составление сметы только для закупки нового оборудования",
+            "Снижение балла риска (Risk Score) и назначение превентивных мер",
+            "Привязка количества брака к ведомости заработной платы",
+            "Анализ рисков только после отправки готовой продукции клиенту"
         ],
         "correct": 1,
         "explanation_uz": "BIQS-03: PFMEA orqali jarayon xatarlari baholanib, risk balli pasaytirilishi kerak.",
@@ -1372,16 +1372,16 @@ def get_biqs_questions():
         "question_uz": "Iste'molchidan kelgan e'tirozlar (GCA, DRR, Reklamatsiya) qaysi hujjatda ko'rib chiqilishi shart (BIQS-04)?",
         "question_ru": "Где обязательно должны рассматриваться претензии клиентов (GCA, DRR) (BIQS-04)?",
         "options_uz": [
-            "Faqat majlis bayonnomasida",
-            "PFMEA xatarlar tahlilida",
-            "Kasaba uyushmasida",
-            "Hech qayerda"
+            "Faqat ichki audit jurnali va 5S ko'rgazmalarida",
+            "PFMEA xatarlar tahlili va jarayon xarita (Flowchart) hujjatlarida",
+            "Faqat Fast Response taqvimiy yig'ilishida",
+            "Standartlashtirish bo'limining yillik hisobotida"
         ],
         "options_ru": [
-            "Только в протоколе собрания",
-            "В анализе рисков PFMEA",
-            "В профсоюзе",
-            "Нигде"
+            "Только в журнале внутренних аудитов и стендах 5S",
+            "В структуре рисков PFMEA и картах процесса Flowchart",
+            "Исключительно на календарном собрании Fast Response",
+            "В годовом отчете отдела стандартизации"
         ],
         "correct": 1,
         "explanation_uz": "BIQS-04: Iste'molchi e'tirozlari albatta PFMEA xatarlariga kiritilib tahlil qilinishi shart.",
@@ -1392,16 +1392,16 @@ def get_biqs_questions():
         "question_uz": "Bypass Management (Aylanib o'tish) jarayoni qachon qo'llaniladi (BIQS-05)?",
         "question_ru": "При каких условиях применяется процесс Bypass Management (BIQS-05)?",
         "options_uz": [
-            "Datchik buzilganda sir tutib ishlash uchun",
-            "Ruxsatsiz ishlash uchun",
-            "Standart yo'riqnoma asosida 100% qo'shimcha nazorat o'rnatish orqali",
-            "Faqat tunda"
+            "Tezkorlikni oshirish uchun ustaning og'zaki ko'rsatmasi bilan",
+            "Standart parametrlarni 20% ga o'zgartirgan holda avtomatik rejimda",
+            "Standart yo'riqnoma (Bypass) va 100% vaqtinchalik qo'shimcha nazorat bilan",
+            "Smena brigadirining ruxsati bilan 50% tanlanma nazorat ostida"
         ],
         "options_ru": [
-            "Для скрытой работы при поломке датчика",
-            "Для работы без разрешения",
-            "По стандарту с введением 100% дополнительного контроля",
-            "Только ночью"
+            "Устным распоряжением мастера для ускорения сборки",
+            "В автоматическом режиме с изменением допусков на 20%",
+            "По утвержденной инструкции Bypass с введением 100% временного контроля",
+            "С разрешения бригадира с выборочным контролем 50% деталей"
         ],
         "correct": 2,
         "explanation_uz": "BIQS-05: Bypass faqat standart yo'riqnoma va qo'shimcha nazorat ostida bajariladi.",
@@ -1412,16 +1412,16 @@ def get_biqs_questions():
         "question_uz": "Xatolardan xoli qilishning (Poka-Yoke) 2-pog'onasi nimani nazarda tutadi (BIQS-06)?",
         "question_ru": "Что подразумевает 2-й уровень защиты от ошибок в BIQS-06?",
         "options_uz": [
-            "Faqat vizual ko'zdan kechirish",
-            "Markerlardan foydalanish",
+            "Vizual belgilash va detalga rangli marker qo'yish",
+            "NG detali tushganda konveyerni avtomatik to'xtatuvchi sensor",
             "Tekshiruv instrumentlari (Check Fix/Torque) orqali parametrni qayd etish",
-            "TPM auditi"
+            "TPM profilaktik checklistini to'ldirish"
         ],
         "options_ru": [
-            "Только визуальный осмотр",
-            "Использование маркеров",
-            "Инструментальный контроль параметров (Check Fix/Torque)",
-            "Аудит TPM"
+            "Визуальная маркировка и нанесение цветного маркера",
+            "Автоматическая блокировка конвейера датчиком при NG детали",
+            "Инструментальный контроль параметров (Check Fix / Torque)",
+            "Заполнение чек-листа профилактики TPM"
         ],
         "correct": 2,
         "explanation_uz": "BIQS-06: 2-pog'ona bu maxsus o'lchov instrumentlari (Torque, Check Fix) orqali sifatni kafolatlash.",
@@ -1432,16 +1432,16 @@ def get_biqs_questions():
         "question_uz": "O'lchov asboblari va jihozlarning to'g'riligini tasdiqlovchi hujjat (BIQS-07)?",
         "question_ru": "Что подтверждает точность измерительных приборов (BIQS-07)?",
         "options_uz": [
-            "Buxgalteriya schyoti",
-            "Yaroqlilik yorlig'i va MSA tahlili (poverka)",
-            "Zavod pasporti",
-            "Buyruq"
+            "Zavod texnik pasporti va kalibrovka sertifikati",
+            "Yaroqlilik yorlig'i va MSA (Gage R&R) tahlili bilan",
+            "Smena ustasining muhrlangan tasdiqnomasi",
+            "Visual Management doskasidagi asboblar ro'yxati"
         ],
         "options_ru": [
-            "Счет-фактура",
-            "Ярлык поверки и анализ MSA",
-            "Паспорт завода",
-            "Приказ"
+            "Заводской технический паспорт и сертификат калибровки",
+            "Действующий ярлык поверки и проведенный анализ MSA (Gage R&R)",
+            "Печать и подпись мастера смены в журнале",
+            "Наличие прибора в реестре визуального менеджмента"
         ],
         "correct": 1,
         "explanation_uz": "BIQS-07: Barcha o'lchov vositalari poverkadan o'tganligi (yorliq) va MSA tahlili bo'lishi shart.",
@@ -1452,16 +1452,16 @@ def get_biqs_questions():
         "question_uz": "Limitdan oshgan sifat muammolari qaysi jarayonga olib chiqiladi (BIQS-08)?",
         "question_ru": "На какой процесс выносятся проблемы качества, превысившие лимит (BIQS-08)?",
         "options_uz": [
-            "Fast Response (Tezkor munosabat)",
-            "Bayram tadbiri",
-            "Kadrlar bo'limiga",
-            "E'tiborsiz qoldiriladi"
+            "Fast Response (Tezkor munosabat) kunlik yig'ilishiga",
+            "Oylik sifat komissiyasi tahliliga",
+            "Poka-Yoke 4-pog'ona auditi daqiqalariga",
+            "SUB (Ta'minotchilar) sifat nazorati bo'limiga"
         ],
         "options_ru": [
-            "Fast Response (Оперативное реагирование)",
-            "Праздничное мероприятие",
-            "В отдел кадров",
-            "Игнорируются"
+            "На ежедневное совещание Fast Response (Оперативное реагирование)",
+            "На ежемесячный анализ комиссии по качеству",
+            "В протокол аудита Poka-Yoke 4-го уровня",
+            "В отдел качества поставщиков SUB"
         ],
         "correct": 0,
         "explanation_uz": "BIQS-08: Katta muammolar zudlik bilan Fast Response yig'ilishida ko'rib chiqiladi.",
@@ -1472,16 +1472,16 @@ def get_biqs_questions():
         "question_uz": "PPSR jarayonining asosiy maqsadi nima (BIQS-09)?",
         "question_ru": "Какова главная цель процесса PPSR (BIQS-09)?",
         "options_uz": [
-            "Ishchilarni ishdan bo'shatish",
-            "Muammolarni yashirish",
-            "Jamoani jalb etgan holda muammoni hujjatlashtirish va bartaraf etish (Eskalatsiya)",
-            "Faqat rahbariyatni jazolash"
+            "Nuqsonli detal uchun mas'ul xodimga jarima belgilash",
+            "Brak mahsulotni tezkor Rework zonasida qayta ishlash",
+            "Jamoaviy ildiz sababni (Root Cause) topish va eskalatsiya choralari",
+            "Uchastka SOS yo'riqnomasini bekor qilish"
         ],
         "options_ru": [
-            "Увольнение рабочих",
-            "Скрытие проблем",
-            "Командное решение проблем с документацией и эскалацией",
-            "Только наказание руководства"
+            "Наложение штрафа на оператора, допустившего брак",
+            "Быстрая переработка бракованной продукции в зоне Rework",
+            "Командный поиск корневой причины (Root Cause) и эскалация мер",
+            "Отмена действующей инструкции SOS на участке"
         ],
         "correct": 2,
         "explanation_uz": "BIQS-09: PPSR orqali muammolar jamoaviy hal qilinadi va eskalatsiya qilinadi.",
@@ -1492,16 +1492,16 @@ def get_biqs_questions():
         "question_uz": "Sifat tekshiruvi hujjatlashtirilishining asosiy talabi nima (BIQS-10)?",
         "question_ru": "Каково главное требование к документированию проверок качества (BIQS-10)?",
         "options_uz": [
-            "Istalgan daftarga yozish",
-            "Belgilangan talab darajasida hujjatlashtirish va muammoda chora ko'rish",
-            "Faqat yodda saqlash",
-            "Kompyuterga yozib qo'yish"
+            "Faqat smena yakunida umumiy sonni elektron bazaga kirish",
+            "Standart blanqlarda doimiy qayd etish va chetlanishda chora ko'rish",
+            "Faqat GCA va DRR tekshiruvlarida qayd etish",
+            "Visual Management taxtasiga tahminiy grafik chizish"
         ],
         "options_ru": [
-            "Запись в любую тетрадь",
-            "Документирование по стандартам с принятием мер при отклонениях",
-            "Только запоминание",
-            "Запись в блокнот"
+            "Внесение общего количества деталей в базу только в конце смены",
+            "Регулярная запись в стандартизированных бланках с реакцией на отклонения",
+            "Фиксация данных исключительно при проверках GCA и DRR",
+            "Нанесение примерного графика на доску визуального менеджмента"
         ],
         "correct": 1,
         "explanation_uz": "BIQS-10: Barcha sifat tekshiruvlari rasmiy tasdiqlangan hujjatlarga qayd qilinishi kerak.",
@@ -1512,16 +1512,16 @@ def get_biqs_questions():
         "question_uz": "Standartlashtirilgan ish (SOS/JES) o'z ichiga nimalarni qamrab oladi (BIQS-11)?",
         "question_ru": "Что охватывает стандартизированная работа (SOS/JES) (BIQS-11)?",
         "options_uz": [
-            "Faqat operatsiya vaqtini",
-            "Xavfsizlik, sifat, operatsiya elementlari va vaqt talablarini",
-            "Ishchining yoshini",
-            "Faqat tushlik vaqtini"
+            "Faqat uskunaning maksimal quvvati va aylanish tezligini",
+            "Xavfsizlik, sifat, operatsiya ketma-ketligi va takt vaqtini",
+            "Brigadirning shaxsiy tajribasi va tavsiyalarini",
+            "Faqat 5S tozalik qoidalari va asboblar joylashuvini"
         ],
         "options_ru": [
-            "Только время операции",
-            "Требования безопасности, качества, элементы работы и времени",
-            "Возраст рабочего",
-            "Только время обеда"
+            "Только максимальную мощность оборудования и скорость вращения",
+            "Требования безопасности, качества, порядок операций и время такта",
+            "Личный опыт и индивидуальные рекомендации бригадира",
+            "Только правила уборки 5S и расположение инструментов"
         ],
         "correct": 1,
         "explanation_uz": "BIQS-11: SOS va JES kartalari xavfsizlik, sifat va vaqt bo'yicha aniq ketma-ketlikni belgilaydi.",
@@ -1532,16 +1532,16 @@ def get_biqs_questions():
         "question_uz": "4M o'zgarishlar nazorati (4M Control) qaysi omillarni o'z ichiga oladi (BIQS-12)?",
         "question_ru": "Какие 4 фактора входят в управление изменениями 4M (BIQS-12)?",
         "options_uz": [
-            "Odam, Jihoz(Mashina), Material, Jarayon",
-            "Meva, Mashina, Maosh, Maktab",
-            "Oila, Oshxona, Olov, Odob",
-            "Faqat Odam va Maosh"
+            "Odam (Man), Mashina (Machine), Material (Material), Jarayon (Method)",
+            "Boshqaruv (Manager), Oylik (Money), Bozor (Market), O'lchov (Measurement)",
+            "Mashina (Machine), Motor (Motor), Moy (Oil), Usta (Master)",
+            "Muddati (Minutes), Mahsulot (Material), Metod (Method), Oylik (Money)"
         ],
         "options_ru": [
-            "Человек, Оборудование, Материал, Процесс (Method)",
-            "Машина, Масло, Мотор, Мастер",
-            "Офис, Отдел, Отчет, Отпуск",
-            "Только Человек и Зарплата"
+            "Человек (Man), Оборудование (Machine), Материал (Material), Метод (Method)",
+            "Менеджер (Manager), Деньги (Money), Рынок (Market), Измерение (Measurement)",
+            "Машина, Мотор, Масло, Мастер",
+            "Минуты, Материал, Метод, Монетизация"
         ],
         "correct": 0,
         "explanation_uz": "BIQS-12: 4M — Odam (Man), Mashina (Machine), Material (Material), Jarayon (Method) o'zgarishlaridir.",
@@ -1552,16 +1552,16 @@ def get_biqs_questions():
         "question_uz": "Sifat tekshiruv vositalarining yetarliligi va ulardan foydalanish qaysi elementda ko'rib chiqiladi (BIQS-13)?",
         "question_ru": "В каком элементе рассматривается достаточность и эффективность средств контроля (BIQS-13)?",
         "options_uz": [
-            "BIQS-01",
-            "BIQS-30",
-            "BIQS-13",
-            "BIQS-27"
+            "BIQS-07 (O'lchov vositalari poverkasi va MSA)",
+            "BIQS-01 (Nomuvofiq mahsulotni ajratish)",
+            "BIQS-13 (Vositalar yetarliligi va o'lchash samaradorligi)",
+            "BIQS-21 (QCOS Torque va Kritik nuqtalar)"
         ],
         "options_ru": [
-            "BIQS-01",
-            "BIQS-30",
-            "BIQS-13",
-            "BIQS-27"
+            "BIQS-07 (Поверка приборов и анализ MSA)",
+            "BIQS-01 (Изоляция брака)",
+            "BIQS-13 (Достаточность и эффективность средств контроля)",
+            "BIQS-21 (Критические точки QCOS)"
         ],
         "correct": 2,
         "explanation_uz": "BIQS-13: Sifatni tekshirish vositalari (shtangensirkul, shablonlar) yetarli va samarali bo'lishi kerak.",
@@ -1572,16 +1572,16 @@ def get_biqs_questions():
         "question_uz": "Jarayon yoki detaldagi o'zgarishlarda qaysi blanka to'ldiriladi (BIQS-14)?",
         "question_ru": "Какой бланк заполняется при любых изменениях деталей или процессов на участке (BIQS-14)?",
         "options_uz": [
-            "PTR blankasi va Breakpoint (ajratish nuqtasi) qayd etiladi",
-            "Tabel varog'i",
-            "Hech qanday blanka",
-            "Ta'til arizasi"
+            "PTR blanqasi to'ldiriladi va Breakpoint nuqtasi belgilanadi",
+            "Faqat PFMEA xatarlar jadvalida ball o'zgartiriladi",
+            "Bypass Management yo'riqnomasi rasmiylashtiriladi",
+            "Faqat Control Plan (CP) hujjati qayta chop etiladi"
         ],
         "options_ru": [
-            "Заполняется бланк PTR и фиксируются точки Breakpoint",
-            "Табель учета времени",
-            "Никакие бланки",
-            "Заявление на отпуск"
+            "Оформляется бланк PTR и фиксируется точка Breakpoint",
+            "Изменяется только балл риска в таблице PFMEA",
+            "Оформляется временная инструкция Bypass Management",
+            "Перепечатывается только План контроля (CP)"
         ],
         "correct": 0,
         "explanation_uz": "BIQS-14: Har bir o'zgarishda PTR to'ldirilib, 4M doskasida Breakpoint qayd etiladi.",
@@ -1592,16 +1592,16 @@ def get_biqs_questions():
         "question_uz": "Ishlab chiqarishda favqulodda muammo aniqlanganda xabardor qilish tizimi (BIQS-15)?",
         "question_ru": "Как называется система оперативного оповещения о проблемах на линии (BIQS-15)?",
         "options_uz": [
-            "FIFO tizimi",
-            "ANDON tizimi (Xabar/chaqiruv)",
-            "LPA auditi",
-            "5S standarti"
+            "Fast Response shoshilinch tizimi",
+            "ANDON tizimi (Signal/Chaqiruv va ogohlantirish)",
+            "Poka-Yoke 3-pog'ona blokirovkasi",
+            "Layered Audit (LA) operativ daftari"
         ],
         "options_ru": [
-            "Система FIFO",
-            "Система ANDON (Оповещение/Вызов)",
-            "Аудит LPA",
-            "Стандарт 5S"
+            "Система экстренного реагирования Fast Response",
+            "Система ANDON (Свето-звуковой вызов и оповещение)",
+            "Автоматическая блокировка Poka-Yoke 3-го уровня",
+            "Лист оперативного аудита Layered Audit (LA)"
         ],
         "correct": 1,
         "explanation_uz": "BIQS-15: ANDON tizimi — muammo yuzaga kelganda liniyani to'xtatib ustani chaqirishni ta'minlaydi.",
@@ -1612,16 +1612,16 @@ def get_biqs_questions():
         "question_uz": "Muammo limitdan oshganda kimlarga xabar berilishi kerak (BIQS-16)?",
         "question_ru": "Кому сообщается о проблеме при превышении лимитов эскалации (BIQS-16)?",
         "options_uz": [
-            "Hech kimga",
-            "Eskalatsiya jarayoni asosida yuqori rahbariyatga va barcha daxldorlarga",
-            "Faqat xaridorga",
-            "Faqat omborchiga"
+            "Faqat mehnat muhofazasi va xavfsizlik inspektoriga",
+            "Eskalatsiya reglamenti bo'yicha tegarli rahbarlar va mutaxassislarga",
+            "Tashqi ta'minotchilar (SUB) va IQC bo'limiga",
+            "Faqat sifat nazoratchisi (QC) va smena operatoriga"
         ],
         "options_ru": [
-            "Никому",
-            "Высшему руководству и ответственным лицам согласно процессу эскалации",
-            "Только покупателю",
-            "Только кладовщику"
+            "Только инспектору по охране труда и технике безопасности",
+            "Соответствующим руководителям и специалистам по матрице эскалации",
+            "Внешним поставщикам (SUB) и отделу IQC",
+            "Только контролеру качества (QC) и оператору смены"
         ],
         "correct": 1,
         "explanation_uz": "BIQS-16: Muammo mezonidan oshsa, belgilangan tartibda rahbarlarga (eskalatsiya) xabar qilinadi.",
@@ -1632,16 +1632,16 @@ def get_biqs_questions():
         "question_uz": "Vizual boshqaruv (Visual Management) standarti nima uchun kerak (BIQS-17)?",
         "question_ru": "Для чего нужны стандарты визуального менеджмента (BIQS-17)?",
         "options_uz": [
-            "Sexni bezatish uchun",
-            "NG va OK holatlarini yaqqol farqlash va ishni osonlashtirish uchun",
-            "Devorlarni yashirish uchun",
-            "Faqat komissiya uchun"
+            "Faqat ISO 9001 auditorlariga namoyish etish uchun",
+            "OK va NG holatlarini tez farqlash va chetlanishlarni ko'rish uchun",
+            "Ishchilarning nobay soatlik vaqtini hisoblash uchun",
+            "Sexdagi asboblarning bozor narxini ko'rsatish uchun"
         ],
         "options_ru": [
-            "Для украшения цеха",
-            "Для наглядного разделения состояний OK и NG и упрощения работы",
-            "Чтобы скрыть стены",
-            "Только для комиссии"
+            "Исключительно для демонстрации аудиторам ISO 9001",
+            "Для оперативного визуального отличия нормы (OK) от брака (NG)",
+            "Для учета невыходов и рабочего времени сотрудников",
+            "Для отображения стоимости оборудования цеха"
         ],
         "correct": 1,
         "explanation_uz": "BIQS-17: Vizual boshqaruv orqali ish joyidagi har qanday og'ish va nosozlik bir qarashda ko'rinadi.",
@@ -1652,16 +1652,16 @@ def get_biqs_questions():
         "question_uz": "Sifat ko'rgazmali qo'llanmalari va o'zgarishlar qanday yetkaziladi (BIQS-18)?",
         "question_ru": "Как должны доводиться до сотрудников визуальные инструкции и изменения (BIQS-18)?",
         "options_uz": [
-            "Xodimga qulay joyga o'rnatilib, samarali tarzda o'qitiladi",
-            "Faqat direktor xonasida saqlanadi",
-            "Guruhlarga WhatsApp orqali jo'natiladi",
-            "Faqat og'zaki aytiladi"
+            "Ish joyiga ko'rinarli o'rnatiladi va xodim amaliy o'qitiladi",
+            "Faqat tsex boshlig'i xonasidagi arxiv papkasida saqlanadi",
+            "Smena boshida faqat og'zaki tarzda o'qib eshitiriladi",
+            "Zavodning ichki korporativ veb-saytiga joylashtiriladi"
         ],
         "options_ru": [
-            "Устанавливаются в удобном месте на линии с проведением обучения",
-            "Хранятся в кабинете директора",
-            "Рассылаются в WhatsApp",
-            "Только устно"
+            "Размещаются непосредственно на рабочем месте с практическим обучением",
+            "Хранятся исключительно в архивной папке начальника цеха",
+            "Зачитываются исключительно устно в начале смены",
+            "Размещаются только на внутреннем портале завода"
         ],
         "correct": 0,
         "explanation_uz": "BIQS-18: Barcha yo'riqnomalar ish joyida vizual ko'rinishda osilgan va xodim o'qitilgan bo'lishi shart.",
@@ -1672,16 +1672,16 @@ def get_biqs_questions():
         "question_uz": "Jarayon nazorati uchun qaysi hujjatlar bir-biriga mos bo'lishi shart (BIQS-19)?",
         "question_ru": "Какие документы контроля процесса должны полностью соответствовать друг другу (BIQS-19)?",
         "options_uz": [
-            "Faqat kadrlar ro'yxati",
-            "Sifat boshqaruv rejasi (CP), Flowchart, FMEA, SOS/JES",
-            "Oylik maosh jadvali",
-            "Menyu va retsept"
+            "PPR grafiki, TPM checklisti, FIFO va SCOS",
+            "Control Plan (CP), Flowchart, FMEA va SOS/JES",
+            "PTR blanqasi, Breakpoint, Bypass va Andon",
+            "MSA tahlili, IQC kirish nazorati va LA varog'i"
         ],
         "options_ru": [
-            "Только штатное расписание",
-            "План контроля (CP), Flowchart, FMEA, SOS/JES",
-            "График отпусков",
-            "Меню в столовой"
+            "График ППР, чек-лист TPM, FIFO и SCOS",
+            "План контроля (CP), Flowchart, FMEA и SOS/JES",
+            "Бланк PTR, Breakpoint, Bypass и Andon",
+            "Анализ MSA, входной контроль IQC и лист LA"
         ],
         "correct": 1,
         "explanation_uz": "BIQS-19: Texnologik jarayondagi barcha asosiy sifat hujjatlari (CP, FMEA, SOS) bir-biriga 100% mos kelishi kerak.",
@@ -1692,16 +1692,16 @@ def get_biqs_questions():
         "question_uz": "Ish joyida xodimning amaliy harakatlari qaysi hujjatga mosligini tekshirish kerak (BIQS-20)?",
         "question_ru": "Соответствие каким документам нужно проверять при оценке работы оператора на линии (BIQS-20)?",
         "options_uz": [
-            "Shartnomaga",
-            "SOS/JES, CheckList va Control Plan (CP) hujjatlariga",
-            "Internet qoidalariga",
-            "Do'stlarining maslahatiga"
+            "Ishchining mehnat shartnomasi va lavozim yo'riqnomasiga mosligi",
+            "Amaliy ishning SOS/JES, CheckList va Control Plan talablariga mosligi",
+            "Uskunaning texnik pasporti va kalibrovka guvohnomasi",
+            "Ta'minotchining IQC kirish hujjatlari va hisob-fakturasi"
         ],
         "options_ru": [
-            "Договору",
-            "Инструкциям SOS/JES, чек-листам и Плану контроля (CP)",
-            "Правилам из интернета",
-            "Советам коллег"
+            "Соответствие трудового договора и должностной инструкции",
+            "Строгое соответствие реальных действий картам SOS/JES, чек-листам и План-контролю",
+            "Технический паспорт и свидетельство поверки станка",
+            "Входная накладная IQC и счет-фактура поставщика"
         ],
         "correct": 1,
         "explanation_uz": "BIQS-20: Operator ishni faqat SOS va CheckList hujjatlariga asosan xatosiz bajarishi shart.",
@@ -1712,16 +1712,16 @@ def get_biqs_questions():
         "question_uz": "Kritik va xavfli texnologik nuqtalar (QCOS Torque/Weld) qanday nazorat qilinadi (BIQS-21)?",
         "question_ru": "Как контролируются критические и опасные точки техпроцесса (QCOS Torque/Weld) (BIQS-21)?",
         "options_uz": [
-            "Belgilangan vaqtda SPC tahlil o'tkaziladi va qattiq nazorat qilinadi",
-            "O'lchanmaydi",
-            "Koz bilan chamalab qo'yiladi",
-            "Yilda bir marta tekshiriladi"
+            "Vaqtida o'lchanadi va SPC (Statistik jarayon nazorati) o'tkaziladi",
+            "Faqat mahsulot mijozga yuborilgandan so'ng sinalladi",
+            "Yilda bir marta ISO audit vaqtida tekshiriladi",
+            "Faqat vizual ko'zdan kechirilib, markerovka qo'yiladi"
         ],
         "options_ru": [
-            "Проводится регулярный замер и анализ SPC (стат. контроль)",
-            "Не измеряются",
-            "Оцениваются на глаз",
-            "Проверяются раз в год"
+            "Регулярно замеряются с проведением статистического анализа SPC",
+            "Проверяются только перед отправкой готовой продукции клиенту",
+            "Проверяются раз в год во время аудита ISO",
+            "Оцениваются исключительно визуально с нанесением метки"
         ],
         "correct": 0,
         "explanation_uz": "BIQS-21: Payvand choki, qotirish momenti kabi kritik nuqtalar maxsus SPC orqali kuzatib boriladi.",
@@ -1732,16 +1732,16 @@ def get_biqs_questions():
         "question_uz": "Ta'mirlash (Rework) operatsiyalari qay tartibda amalga oshiriladi (BIQS-22)?",
         "question_ru": "В каком порядке выполняются операции доработки/ремонта деталей (Rework) (BIQS-22)?",
         "options_uz": [
-            "Istalgan joyda",
-            "Alohida joyda, maxsus SOS/JES va malakali xodim (Flexibility chart) tomonidan",
-            "Konveyer ustida to'xtatmay",
-            "Sirtdan bo'yab qo'yish orqali"
+            "Konveyer harakatlanayotgan vaqtda bevosita ish joyida",
+            "Alohida zonada, maxsus SOS va Flexibility chart bo'yicha malakali xodim tomonidan",
+            "Smena oxirida xohlagan operator tomonidan",
+            "Ta'minotchi (SUB) vakili kelishini kutib omborda"
         ],
         "options_ru": [
-            "В любом месте",
-            "В изолированной зоне обученным персоналом по специальной инструкции SOS",
-            "Прямо на конвейере без остановки",
-            "Скрытием дефекта"
+            "Прямо на движущемся конвейере на рабочем месте",
+            "В изолированной зоне обученным персоналом по SOS и матрице Flexibility",
+            "Любым свободным оператором в конце смены",
+            "На складе в ожидании представителя поставщика (SUB)"
         ],
         "correct": 1,
         "explanation_uz": "BIQS-22: Rework (qayta ishlash) faqat ruxsat etilgan xodim tomonidan va alohida sektorda bajariladi.",
@@ -1752,16 +1752,16 @@ def get_biqs_questions():
         "question_uz": "Sifat muammolari haqida boshqa tsexlarga qanday xabar beriladi (BIQS-23)?",
         "question_ru": "Как смежные участки оповещаются о проблемах качества (BIQS-23)?",
         "options_uz": [
-            "Hech qanday",
-            "Oldinga va orqaga zudlik bilan Quality Alert (Sifat haqida ogohlantirish) orqali",
-            "Faqat direktor orqali",
-            "Ovoz karnayi orqali baqirib"
+            "Faqat oylik Fast Response hisobotida ko'rsatish orqali",
+            "Quality Alert va Containment Sheet orqali oldinga va orqaga zudlik bilan",
+            "Faqat telefon orqali og'zaki xabar berish bilan",
+            "LPA auditi o'tkazish vaqtida daftarga yozish orqali"
         ],
         "options_ru": [
-            "Никак",
-            "Двусторонним оперативным оповещением Quality Alert (Тревога по качеству)",
-            "Только через директора",
-            "Через громкоговоритель"
+            "Исключительно в ежемесячном отчете Fast Response",
+            "Двусторонним оперативным уведомлением Quality Alert и Containment Sheet",
+            "Только устным звонком по телефону",
+            "Путем записи в журнал во время проведения аудита LPA"
         ],
         "correct": 1,
         "explanation_uz": "BIQS-23: Nuqson topilganda uni manbayi va qabul qiluvchisi Quality Alert (Containment) bilan ogohlantiriladi.",
@@ -1772,16 +1772,16 @@ def get_biqs_questions():
         "question_uz": "Xodimlarning operatsiyalarni bajarish malakasi (Flexibility chart) qanday ta'minlanadi (BIQS-24)?",
         "question_ru": "Как обеспечивается и контролируется квалификация рабочих (Flexibility chart) (BIQS-24)?",
         "options_uz": [
-            "Hamma hamma ishni qiladi",
-            "Maxsus JIT o'qitish va Flexibility chart orqali ruxsat berilganidan keyin",
-            "Diplomga qarab",
-            "Ustaning xohishiga qarab"
+            "Oliy ma'lumot diplomi va umumiy mehnat stajiga qarab",
+            "SOS/JES asosida JIT o'qitish va Flexibility chart orqali tasdiqlash",
+            "Operatorning shaxsiy xohishi va o'z-o'zini baholashi orqali",
+            "Mehnat muhofazasi bo'limining umumiy kirish blanqasi bo'yicha"
         ],
         "options_ru": [
-            "Все делают всё",
-            "Через обучение JIT и допуск согласно матрице квалификации (Flexibility chart)",
-            "По наличию диплома",
-            "По желанию мастера"
+            "На основе диплома о высшем образовании и общего стажа",
+            "Обучение JIT по SOS/JES и подтверждение в матрице Flexibility chart",
+            "По личному заявлению и самооценке оператора",
+            "По общему вводному инструктажу отдела охраны труда"
         ],
         "correct": 1,
         "explanation_uz": "BIQS-24: Har bir xodim faqat o'ziga o'rgatilgan (JIT) va matritsada tasdiqlangan ishni bajara oladi.",
@@ -1792,16 +1792,16 @@ def get_biqs_questions():
         "question_uz": "Ish joyida mahsulotni chang va kirdan himoya qilish tartibi qaysi elementga kiradi (BIQS-25)?",
         "question_ru": "К какому элементу относится защита продукции и рабочего места от пыли и загрязнений (BIQS-25)?",
         "options_uz": [
-            "BIQS-25 (Tozalik va ifloslanishdan himoya)",
-            "BIQS-10",
-            "BIQS-01",
-            "BIQS-30"
+            "BIQS-25 (Ish joyi va mahsulotni chang hamda ifloslanishdan himoya qilish)",
+            "BIQS-17 (Vizual boshqaruv va 5S ko'rgazmasi)",
+            "BIQS-26 (TPM uskunalar va PPR texnik xizmati)",
+            "BIQS-01 (Nomuvofiq mahsulot red tag zonasi)"
         ],
         "options_ru": [
-            "BIQS-25 (Чистота и защита от загрязнений)",
-            "BIQS-10",
-            "BIQS-01",
-            "BIQS-30"
+            "BIQS-25 (Защита рабочего места и продукции от пыли и загрязнений)",
+            "BIQS-17 (Визуальный менеджмент и 5S)",
+            "BIQS-26 (Техническое обслуживание оборудования TPM и ППР)",
+            "BIQS-01 (Красная зона несоответствующей продукции)"
         ],
         "correct": 0,
         "explanation_uz": "BIQS-25: Ish joyida detalga chang tushmasligi uchun tozalik standarti qat'iy ta'minlanishi zarur.",
@@ -1812,16 +1812,16 @@ def get_biqs_questions():
         "question_uz": "Uskunalar sifatli ishlashi uchun nima profilaktika qilinadi (BIQS-26)?",
         "question_ru": "Какая профилактика применяется для безотказной работы оборудования (BIQS-26)?",
         "options_uz": [
-            "Uskuna buzilgandagina tuzatiladi",
-            "TPM (kundalik texnik xizmat) va PPR (rejali ta'mir) hujjatlari asosida nazorat qilinadi",
-            "Ochib yopib turiladi",
-            "Hech narsa qilinmaydi"
+            "Uskuna jiddiy buzilib, konveyer to'xtaganda",
+            "TPM checklistlari va PPR rejali ta'mirlash grafikalari asosida",
+            "Faqat Tashqi kalibrovka tashkiloti auditi vaqtida",
+            "Smena boshlig'ining kayfiyati va topshirig'iga qarab"
         ],
         "options_ru": [
-            "Станок чинят только после поломки",
-            "Контролируется через чек-листы TPM и графики планового ремонта (ППР)",
-            "Просто выключают",
-            "Ничего не делается"
+            "Исключительно после серьезной поломки и остановки линии",
+            "По чек-листам TPM и графикам планово-предупредительного ремонта (ППР)",
+            "Только во время аудита внешней калибровочной организации",
+            "По индивидуальному указанию начальника смены"
         ],
         "correct": 1,
         "explanation_uz": "BIQS-26: TPM operator tomonidan, PPR mexaniklar tomonidan vaqtida bajarilishi uskunani asraydi.",
@@ -1832,16 +1832,16 @@ def get_biqs_questions():
         "question_uz": "FIFO qoidasi nima uchun muhim (BIQS-27)?",
         "question_ru": "Для чего критически важно соблюдение правила FIFO (BIQS-27)?",
         "options_uz": [
-            "Chiroyli ko'rinish uchun",
-            "Birinchi kelgan material birinchi ishlatilishi va eskirib qolmasligi uchun",
-            "Omborchini qiynash uchun",
-            "Oson olish uchun"
+            "Konteynerlarni sexda tekshirish vaqtini tejash uchun",
+            "Birinchi kelgan detal birinchi ishlatilib, eskirib va sifati buzilib qolmasligi uchun",
+            "Ombordagi bo'sh maydonni maksimal kamaytirish uchun",
+            "Faqat detallarning rangi va shakli bo'yicha guruhlash uchun"
         ],
         "options_ru": [
-            "Для красоты",
-            "Чтобы материал, поступивший первым, расходовался первым и не портился",
-            "Чтобы загрузить кладовщика",
-            "Для удобства"
+            "Для сокращения времени проверки контейнеров в цехе",
+            "Первая поступившая деталь используется первой для предотвращения порчи и старения",
+            "Для максимального уменьшения свободной площади склада",
+            "Исключительно для группировки деталей по цвету и форме"
         ],
         "correct": 1,
         "explanation_uz": "BIQS-27: FIFO (First-In, First-Out) zaxiralar yaroqlilik muddatini nazorat qilish kafolatidir.",
@@ -1852,16 +1852,16 @@ def get_biqs_questions():
         "question_uz": "Mahsulotlar qanday idish (tara) larda yetkazilishi shart (BIQS-28)?",
         "question_ru": "В какой таре должна поставляться и храниться продукция (BIQS-28)?",
         "options_uz": [
-            "Karton qutilarda",
-            "Istalgan topilgan idishda",
-            "Faqat tasdiqlangan, maxsus yorliqli (birka) konteyner va taralarda (Min/Max bo'yicha)",
-            "Yerda yoyib"
+            "Sexda topilgan va bo'shagan har qanday karton va yog'och qutilarda",
+            "Limitsiz miqdorda to'g'ridan-to mezonda polda to'plangan holda",
+            "Tasdiqlangan maxsus konteyner, yorliq (birka) va Min/Max limitlari asosida",
+            "Faqat etkazib beruvchining ochiq plastik paketlarida"
         ],
         "options_ru": [
-            "В картонных коробках",
-            "В любой доступной таре",
-            "Только в утвержденной специализированной таре с бирками (по Min/Max)",
-            "Навалом на полу"
+            "В любой освободившейся картонной или деревянной таре",
+            "Навалом прямо на полу без ограничения количества",
+            "В утвержденной спец-таре с бирками и соблюдением лимитов Min/Max",
+            "Только в открытых пластиковых пакетах поставщика"
         ],
         "correct": 2,
         "explanation_uz": "BIQS-28: Noto'g'ri tara mahsulot sifatiga zarar yetkazadi, shuning uchun faqat tasdiqlangan taralar ruxsat etiladi.",
@@ -1872,16 +1872,16 @@ def get_biqs_questions():
         "question_uz": "Ta'minotchilardan (SUB) kelayotgan ehtiyot qismlar qanday nazorat qilinadi (BIQS-29)?",
         "question_ru": "Как контролируются компоненты, поступающие от субпоставщиков (BIQS-29)?",
         "options_uz": [
-            "Tekshirilmaydi",
-            "Kirish nazorati (IQC), sifat yorlig'i va BIQS 1-13 auditi orqali",
-            "Faqat tarozi orqali",
-            "Rangi orqali"
+            "Faqat detallarning bojxona deklaratsiyasi va yuk xati asosida",
+            "IQC kirish nazorati, sifat yorliqlari va BIQS 1-13 auditlari orqali",
+            "Ta'minotchining o'zi tomonidan berilgan sifat kafolat xati bo'yicha",
+            "Tayyor avtomobilni oxirgi sinov trekida haydab ko'rish orqali"
         ],
         "options_ru": [
-            "Никак не проверяются",
-            "Через входной контроль (IQC), маркировку и аудит по BIQS 1-13",
-            "Только взвешиванием",
-            "На глаз по цвету"
+            "Только на основании таможенной декларации и накладной",
+            "Через входной контроль IQC, маркировку качества и аудиты BIQS 1-13",
+            "По гарантийному письму самого поставщика без проверки",
+            "При контрольном испытании готового автомобиля на треке"
         ],
         "correct": 1,
         "explanation_uz": "BIQS-29: Kirib kelayotgan qismlar sifatli bo'lmas ekan, yakuniy mahsulot ham sifatli bo'lmaydi.",
@@ -1892,16 +1892,16 @@ def get_biqs_questions():
         "question_uz": "Mehnat xavfsizligi va GMS PI qoidalari qaysi BIQS standartida yozilgan (BIQS-30)?",
         "question_ru": "В каком стандарте BIQS описаны требования безопасности и GMS PI (BIQS-30)?",
         "options_uz": [
-            "BIQS-02",
-            "BIQS-15",
-            "BIQS-30 (Xavfsizlik SCOS)",
-            "BIQS-12"
+            "BIQS-01 (Nomuvofiq mahsulot red tag)",
+            "BIQS-15 (ANDON chaqiruv tizimi)",
+            "BIQS-30 (Mehnat muhofazasi, SCOS ko'rgazmali yo'riqnomalari va GMS PI)",
+            "BIQS-26 (TPM uskunalar va PPR)"
         ],
         "options_ru": [
-            "BIQS-02",
-            "BIQS-15",
-            "BIQS-30 (Безопасность SCOS)",
-            "BIQS-12"
+            "BIQS-01 (Изоляция брака)",
+            "BIQS-15 (Система Andon)",
+            "BIQS-30 (Охрана труда, наглядные инструкции SCOS и требования GMS PI)",
+            "BIQS-26 (TPM и ППР)"
         ],
         "correct": 2,
         "explanation_uz": "BIQS-30: Xavfsizlik har doim birinchi o'rinda! SCOS qoidalariga hamma amal qilishi shart.",
