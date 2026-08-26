@@ -504,29 +504,20 @@ function selectOption(selectedIndex, correctIndex, selectedBtn) {
     const q = quizQuestions[currentQuestionIndex];
     const isCorrect = selectedIndex === correctIndex;
 
+    selectedBtn.classList.add("selected");
+    selectedBtn.querySelector("i").className = "fa-solid fa-circle-dot";
+
     if (isCorrect) {
         quizScore++;
-        selectedBtn.classList.add("correct");
-        selectedBtn.querySelector("i").className = "fa-solid fa-circle-check";
     } else {
-        selectedBtn.classList.add("wrong");
-        selectedBtn.querySelector("i").className = "fa-solid fa-circle-xmark";
-        // Highlight correct option
-        allBtns[correctIndex].classList.add("correct");
-        allBtns[correctIndex].querySelector("i").className = "fa-solid fa-circle-check";
-        
-        // Track mistake
-        const explanationPrefix = q.explanation_ru.split(':')[0]; // Extracts "BIQS-XX"
+        const explanationPrefix = q.explanation_ru ? q.explanation_ru.split(':')[0] : "BIQS";
         quizMistakes.push(explanationPrefix);
     }
 
-    // Show explanation
-    const explanationText = currentLang === 'ru' ? q.explanation_ru : q.explanation_uz;
-    document.getElementById("explanationText").textContent = explanationText;
-    document.getElementById("explanationBox").classList.remove("hidden");
-
-    // Show Next Button
-    document.getElementById("nextQuestionBtn").classList.remove("hidden");
+    // Auto-advance to next question after 350ms without revealing answers mid-quiz
+    setTimeout(() => {
+        nextQuestion();
+    }, 350);
 }
 
 function nextQuestion() {

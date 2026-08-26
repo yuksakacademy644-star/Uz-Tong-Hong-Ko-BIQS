@@ -221,7 +221,7 @@ async def get_my_team_route(telegram_id: int = Query(...)):
 async def get_elements():
     return database.get_biqs_elements()
 
-# Quiz (random 10 questions)
+# Quiz (random 10 questions with randomized option orders)
 @app.get("/api/quiz")
 async def get_quiz(telegram_id: Optional[int] = Query(None)):
     if telegram_id:
@@ -236,7 +236,30 @@ async def get_quiz(telegram_id: Optional[int] = Query(None)):
             )
     questions = database.get_biqs_questions()
     random.shuffle(questions)
-    return questions[:10]
+    selected = questions[:10]
+
+    # Dynamically shuffle option positions for each question
+    shuffled_questions = []
+    for q in selected:
+        q_copy = dict(q)
+        opts_uz = list(q["options_uz"])
+        opts_ru = list(q["options_ru"])
+        orig_correct = q["correct"]
+
+        # Zip options with index to keep uz and ru aligned
+        combined = list(zip(opts_uz, opts_ru, range(len(opts_uz))))
+        random.shuffle(combined)
+
+        new_opts_uz = [c[0] for c in combined]
+        new_opts_ru = [c[1] for c in combined]
+        new_correct = next(i for i, c in enumerate(combined) if c[2] == orig_correct)
+
+        q_copy["options_uz"] = new_opts_uz
+        q_copy["options_ru"] = new_opts_ru
+        q_copy["correct"] = new_correct
+        shuffled_questions.append(q_copy)
+
+    return shuffled_questions
 
 # Quiz Submit
 @app.post("/api/quiz/submit")
