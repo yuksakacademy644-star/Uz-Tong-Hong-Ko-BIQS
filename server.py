@@ -290,6 +290,8 @@ async def get_leaderboard_route(user_telegram_id: Optional[int] = None, shop_nam
             is_admin = database.is_admin_or_superadmin(user_telegram_id)
             if is_admin:
                 role = "superadmin"
+            elif role == 'quality' and (not shop_name or shop_name == 'all'):
+                shop_name = user.get("shop_name")
 
     if role in allowed_roles:
         leaders = database.get_leaderboard(limit=500, shop_name=shop_name)

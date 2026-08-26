@@ -330,9 +330,9 @@ def get_subordinates(user_id: int):
         best_score DESC
     """
 
-    if user_id in _cfg.ADMIN_IDS or role in ('superadmin', 'admin', 'director', 'quality', 'engineer'):
+    if user_id in _cfg.ADMIN_IDS or role in ('superadmin', 'admin', 'director', 'engineer'):
         cursor.execute(base_select + "WHERE u.role NOT IN ('superadmin','admin')" + order)
-    elif role == 'nachalnik':
+    elif role in ('nachalnik', 'quality'):
         cursor.execute(base_select + "WHERE u.shop_name = ? AND u.role NOT IN ('superadmin','admin','nachalnik')" + order, (shop,))
     elif role == 'master':
         cursor.execute(base_select + "WHERE u.shop_name = ? AND u.master_name = ? AND u.role NOT IN ('superadmin','admin','nachalnik','master')" + order, (shop, name))
@@ -497,8 +497,16 @@ def save_test_result(telegram_id: int, score: int, total: int, percentage: float
 def check_user_cooldown(telegram_id: int):
     """
     Checks if user failed their last test (<80%) and enforces a 5-minute (300s) retry cooldown.
+    Privileged roles (Admin, Superadmin, Nachalnik, Engineer, Director) are EXEMPT from cooldowns.
     Returns (can_take: bool, remaining_seconds: int).
     """
+    if is_admin_or_superadmin(telegram_id):
+        return True, 0
+
+    user = get_user(telegram_id)
+    if user and user.get("role") in ('admin', 'superadmin', 'nachalnik', 'engineer', 'director'):
+        return True, 0
+
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""
