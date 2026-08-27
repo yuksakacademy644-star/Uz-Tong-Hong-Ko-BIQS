@@ -420,6 +420,9 @@ async def delete_user_route(data: DeleteUserRequest):
     if data.target_telegram_id in config.ADMIN_IDS:
         raise HTTPException(status_code=400, detail="Cannot delete main superadmin")
 
+    if data.target_telegram_id == data.admin_telegram_id:
+        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+
     target_user = database.get_user(data.target_telegram_id)
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -429,6 +432,7 @@ async def delete_user_route(data: DeleteUserRequest):
         return {"status": "success", "deleted_id": data.target_telegram_id, "full_name": target_user.get("full_name")}
     else:
         raise HTTPException(status_code=500, detail="Failed to delete user")
+
 
 
 @app.get("/api/admin/force_update_keyboards")

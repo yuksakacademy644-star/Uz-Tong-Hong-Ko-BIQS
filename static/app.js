@@ -827,17 +827,29 @@ function renderAdminAdmins(admins) {
                     <th>ФИО (ID)</th>
                     <th>Роль</th>
                     <th>Права доступа</th>
+                    <th>Harakat</th>
                 </tr>
             </thead>
             <tbody>
     `;
 
     admins.forEach(a => {
+        const safeName = (a.full_name || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
+        const isSelfOrOwner = a.role === 'superadmin' || a.telegram_id === userTelegramId;
+        
+        let actionCol = isSelfOrOwner
+            ? `<span style="font-size:10px; color:var(--accent-gold); border:1px solid rgba(255,215,0,0.3); padding:2px 6px; border-radius:4px;">👑 Owner</span>`
+            : `<button onclick="handleDeleteWorker(${a.telegram_id}, '${safeName}')" 
+                       style="background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3); padding:4px 8px; border-radius:6px; font-size:11px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">
+                   <i class="fa-solid fa-trash"></i> O'chirish
+               </button>`;
+
         html += `
             <tr>
-                <td><strong>${a.full_name}</strong><br><small style="color:var(--text-muted);">${a.telegram_id}</small></td>
+                <td><strong>${a.full_name || 'Admin'}</strong><br><small style="color:var(--text-muted);">${a.telegram_id}</small></td>
                 <td><span class="element-code-badge" style="background:var(--accent-purple); color:#fff;">${a.role || 'admin'}</span></td>
                 <td><small style="color:var(--accent-blue);">${a.permissions || 'all'}</small></td>
+                <td>${actionCol}</td>
             </tr>
         `;
     });
@@ -845,6 +857,7 @@ function renderAdminAdmins(admins) {
     html += `</tbody></table>`;
     container.innerHTML = html;
 }
+
 
 function renderActiveCodes(codes) {
     const container = document.getElementById("activeCodesList");
