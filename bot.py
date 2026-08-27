@@ -1089,8 +1089,9 @@ async def admin_workers_page_callback(update: Update, context: ContextTypes.DEFA
         tg_id = w["telegram_id"]
         score = round(w.get("best_score", 0))
         star = " 🌟" if score >= 80 else ""
-        btn_text = f"👤 {full_name} ({shop_name}){star}"
+        btn_text = f"👤 {full_name} [ID: {tg_id}] ({shop_name}){star}"
         keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"admin_view_user_{tg_id}_{page}")])
+
 
     nav_row = []
     if page > 0:
@@ -1531,9 +1532,96 @@ async def delbanned_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_html(f"❌ Правило с ID #{pid} не найдено.")
 
+async def whois_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if not database.is_admin_or_superadmin(user_id) and not database.check_user_permission(user_id, "view_workers"):
+        await update.message.reply_html("⚠️ Доступ запрещен. Эта команда доступна только администраторам.")
+        return
+
+    args = context.args
+    if not args:
+        await update.message.reply_html(
+            "⚠️ <b>Формат команды / Использование:</b>\n"
+            "<code>/whois &lt;Telegram ID или @username&gt;</code>\n"
+            "<code>/userinfo &lt;Telegram ID или @username&gt;</code>\n\n"
+            "<i>Пример:</i> <code>/whois 5543183063</code> или <code>/whois @username</code>"
+        )
+        return
+
+    query_str = args[0].strip()
+    target_user = None
+
+    if query_str.isdigit():
+        target_id = int(query_str)
+        target_user = database.get_user(target_id)
+    else:
+        username_clean = query_str.lstrip("@").lower()
+        workers = database.get_all_workers_admin()
+        target_w = next((w for w in workers if (w.get("username") or "").lower() == username_clean), None)
+        if target_w:
+            target_user = database.get_user(target_w["telegram_id"])
+
+    if not target_user:
+        await update.message.reply_html(f"❌ Пользователь <code>{query_str}</code> не найден в базе данных.")
+        return
+
+    target_id = target_user["telegram_id"]
+    stats = database.get_user_stats(target_id)
+    best_score = round(stats.get("best_score") or 0)
+    avg_score = round(stats.get("avg_score") or 0)
+    tests_count = stats.get("tests_count", 0)
+    is_expert = best_score >= 80
+
+    role_key = target_user.get("role", "worker")
+    role_label = ROLE_LABELS.get(role_key, ("👤 Рабочий", "👤 Ishchi"))[0]
+
+    username_str = f"@{target_user.get('username')}" if target_user.get('username') else "<i>отсутствует</i>"
+    phone_str = target_user.get("phone") or "<i>не указан</i>"
+    shop_str = target_user.get("shop_name") or "<i>не указан</i>"
+    invite_str = target_user.get("invite_code") or "—"
+    reg_str = str(target_user.get("registered_at", "—"))[:19]
+    status_str = "🌟 <b>Эксперт BIQS (80%+)</b>" if is_expert else "💼 <b>Активный сотрудник</b>"
+
+    import json as _json
+    workers_admin = database.get_all_workers_admin()
+    target_w = next((w for w in workers_admin if w["telegram_id"] == target_id), None)
+    mistakes_str = "—"
+    if target_w and target_w.get("latest_mistakes"):
+        try:
+            ml = _json.loads(target_w["latest_mistakes"])
+            mistakes_str = ", ".join(ml) if isinstance(ml, list) else str(target_w["latest_mistakes"])
+        except:
+            mistakes_str = str(target_w["latest_mistakes"])
+
+    profile_text = (
+        f"🔍 <b>ИНФОРМАЦИЯ О ПОЛЬЗОВАТЕЛЕ / XODIM HAQIDA MA'LUMOT</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"👤 <b>ФИО в системе:</b> <b>{target_user.get('full_name', '—')}</b>\n"
+        f"🆔 <b>Telegram ID:</b> <code>{target_id}</code>\n"
+        f"📱 <b>Username:</b> {username_str}\n"
+        f"📞 <b>Телефон:</b> {phone_str}\n"
+        f"🏭 <b>Участок / Цех:</b> <b>{shop_str}</b>\n"
+        f"🎖 <b>Должность:</b> {role_label}\n"
+        f"🔑 <b>Код приглашения:</b> <code>{invite_str}</code>\n"
+        f"📅 <b>Дата регистрации:</b> <i>{reg_str}</i>\n\n"
+        f"📊 <b>СТАТИСТИКА ТЕСТИРОВАНИЯ:</b>\n"
+        f"🎯 <b>Лучший результат:</b> <b>{best_score}%</b>\n"
+        f"📈 <b>Средний балл:</b> {avg_score}%\n"
+        f"📝 <b>Пройдено тестов:</b> {tests_count}\n"
+        f"🎖 <b>Статус:</b> {status_str}\n"
+        f"⚠️ <b>Последние ошибки:</b> <i>{mistakes_str}</i>"
+    )
+
+    keyboard = [
+        [InlineKeyboardButton("❌ Удалить этого пользователя", callback_data=f"admin_del_user_ask_{target_id}_0")]
+    ]
+
+    await update.message.reply_html(profile_text, reply_markup=InlineKeyboardMarkup(keyboard))
+
 async def admin_broadcast_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("❌ Рассылка отменена.")
     return ConversationHandler.END
+
 
 def create_bot_app(webhook_mode: bool = False):
     request = HTTPXRequest(connection_pool_size=8, connect_timeout=30.0, read_timeout=30.0, write_timeout=30.0)
@@ -1631,7 +1719,10 @@ def create_bot_app(webhook_mode: bool = False):
     application.add_handler(CommandHandler("workers", workers_command))
     application.add_handler(CommandHandler("stats", show_stats_handler))
     application.add_handler(CommandHandler("deleteuser", deleteuser_command))
+    application.add_handler(CommandHandler("whois", whois_command))
+    application.add_handler(CommandHandler("userinfo", whois_command))
     application.add_handler(CommandHandler("myteam", my_team_handler))
+
     application.add_handler(CommandHandler("reports", monthly_reports_handler))
     application.add_handler(CommandHandler("monthly", monthly_reports_handler))
     application.add_handler(CommandHandler("sectors", sectors_stats_handler))
