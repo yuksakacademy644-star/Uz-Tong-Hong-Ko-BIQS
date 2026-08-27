@@ -197,12 +197,23 @@ async def get_user_info(telegram_id: int = Query(...)):
 # My Team (Master / Chief Shop Monitoring)
 @app.get("/api/my_team")
 async def get_my_team_route(telegram_id: int = Query(...)):
-    user = database.get_user(telegram_id)
     is_admin = database.is_admin_or_superadmin(telegram_id)
+    user = database.get_user(telegram_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        if is_admin:
+            user = {
+                "telegram_id": telegram_id,
+                "full_name": "Администратор",
+                "role": "superadmin",
+                "shop_name": "Barcha sexlar (Управление)"
+            }
+        else:
+            raise HTTPException(status_code=404, detail="User not found")
     
     role = user.get("role", "worker")
+    if is_admin:
+        role = "superadmin"
+
     allowed_team_roles = {'nachalnik', 'master', 'brigadir', 'brigadier', 'quality', 'director', 'engineer', 'admin', 'superadmin'}
     if role not in allowed_team_roles and not is_admin:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -214,7 +225,7 @@ async def get_my_team_route(telegram_id: int = Query(...)):
         for w in workers:
             w['latest_mistakes'] = None
 
-    shop_name = user.get("shop_name", "СП Уз Тонг Хонг Ко")
+    shop_name = user.get("shop_name") or ("Barcha sexlar (Управление)" if is_admin else "СП Уз Тонг Хонг Ко")
     return {
         "shop_name": shop_name,
         "workers": workers

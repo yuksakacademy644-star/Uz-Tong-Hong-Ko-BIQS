@@ -297,10 +297,18 @@ def get_subordinates(user_id: int):
     - admin/superadmin → all workers
     """
     import config as _cfg
+    is_admin = is_admin_or_superadmin(user_id)
     user = get_user(user_id)
     if not user:
-        return []
+        if is_admin:
+            user = {'role': 'superadmin', 'shop_name': 'Управление', 'full_name': 'Администратор'}
+        else:
+            return []
+
     role = user.get('role', 'worker')
+    if is_admin:
+        role = 'superadmin'
+
     shop = user.get('shop_name', '')
     name = user.get('full_name', '')
 
