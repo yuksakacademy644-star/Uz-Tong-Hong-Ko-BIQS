@@ -937,6 +937,7 @@ function renderAdminWorkers(workers) {
                                 <th>Тел</th>
                                 <th>Балл (Ошибки)</th>
                                 <th>Код</th>
+                                <th>Harakat</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -952,6 +953,8 @@ function renderAdminWorkers(workers) {
                 mistakesText = w.latest_mistakes || ''; 
             }
 
+            const safeName = (w.full_name || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
+
             html += `
                 <tr>
                     <td>
@@ -964,6 +967,12 @@ function renderAdminWorkers(workers) {
                         ${mistakesText ? `<br><small style="color:var(--accent-red); font-weight:normal; font-size:10px;">${mistakesText}</small>` : ''}
                     </td>
                     <td><code style="background:rgba(255,255,255,0.1); padding:2px 4px; border-radius:4px;">${w.invite_code}</code></td>
+                    <td>
+                        <button onclick="handleDeleteWorker(${w.telegram_id}, '${safeName}')" 
+                                style="background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3); padding:4px 8px; border-radius:6px; font-size:11px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">
+                            <i class="fa-solid fa-trash"></i> O'chirish
+                        </button>
+                    </td>
                 </tr>
             `;
         });
@@ -978,6 +987,34 @@ function renderAdminWorkers(workers) {
 
     container.innerHTML = html;
 }
+
+async function handleDeleteWorker(targetId, targetName) {
+    if (!confirm(`Foydalanuvchi "${targetName}" (ID: ${targetId}) ni bazadan mutlaqo o'chirib tashlamoqchimisiz?\n\nO'chirilgandan so'ng, bu foydalanuvchi botga qayta kirib /start bosganda, bot unga qaytadan taklif kodini (invite code) so'raydi.`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/admin/delete_user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                target_telegram_id: targetId,
+                admin_telegram_id: userTelegramId
+            })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+            alert(`✅ Foydalanuvchi "${data.full_name || targetName}" bazadan o'chirildi!\nEndi bu foydalanuvchi /start bosganda bot undan taklif kodini so'raydi.`);
+            fetchAdminData();
+        } else {
+            alert(`❌ Xatolik: ${data.detail || "Foydalanuvchini o'chirib bo'lmadi"}`);
+        }
+    } catch (err) {
+        alert("Tarmoq xatoligi yuz berdi");
+    }
+}
+
 
 async function handleCreateCode(e) {
     e.preventDefault();

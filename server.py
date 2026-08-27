@@ -133,6 +133,10 @@ class AddAdminRequest(BaseModel):
     permissions: list[str] = ["create_codes", "view_workers", "broadcast"]
     added_by: int
 
+class DeleteUserRequest(BaseModel):
+    target_telegram_id: int
+    admin_telegram_id: int
+
 
 # ─────────────────────────────────────────────
 # Helper
@@ -407,6 +411,25 @@ async def create_admin_code(data: CreateCodeRequest):
         target_role=data.target_role or "worker"
     )
     return {"status": "created", "code": data.code, "target_role": data.target_role}
+
+@app.post("/api/admin/delete_user")
+async def delete_user_route(data: DeleteUserRequest):
+    if not database.is_admin_or_superadmin(data.admin_telegram_id) and not database.check_user_permission(data.admin_telegram_id, "view_workers"):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if data.target_telegram_id in config.ADMIN_IDS:
+        raise HTTPException(status_code=400, detail="Cannot delete main superadmin")
+
+    target_user = database.get_user(data.target_telegram_id)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    deleted = database.delete_user(data.target_telegram_id)
+    if deleted:
+        return {"status": "success", "deleted_id": data.target_telegram_id, "full_name": target_user.get("full_name")}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to delete user")
+
 
 @app.get("/api/admin/force_update_keyboards")
 async def force_update_keyboards_route():
